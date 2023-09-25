@@ -22,7 +22,7 @@ public class Lexer {
         String line;
         int isInNotation = 0;
         while ((line = input.readLine()) != null) {
-            lineCnt.add(BigInteger.ONE);
+            lineCnt = lineCnt.add(BigInteger.ONE);
             Stepper stepper = new Stepper(line);
             while (!stepper.atEnd()) {
                 // 换行注释检测
