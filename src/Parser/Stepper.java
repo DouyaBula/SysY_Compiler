@@ -51,7 +51,7 @@ public class Stepper {
 
     public boolean is(Symbol... tokens) {
         for (int i = 0; i < tokens.length; i++) {
-            if (peek(i) == null || !peek(i).is((Symbol) tokens[i])) {
+            if (peek(i) == null || !peek(i).is(tokens[i])) {
                 return false;
             }
         }

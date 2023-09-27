@@ -9,7 +9,7 @@ public class Node {
 
     private final ArrayList<Node> children;
     private final Token token;
-    private boolean isLeaf;
+    private final boolean isLeaf;
 
     public Node(Token token) {
         this.type = null;
@@ -61,10 +61,12 @@ public class Node {
 
     @Override
     public String toString() {
-        if (isLeaf) {
+        if (isLeaf()) {
+            assert token != null;
             return token.getType() + " " + token.getRaw();
         } else {
-            return "<" + type.toString() + ">";
+            assert type != null;
+            return "<" + type + ">";
         }
     }
 }

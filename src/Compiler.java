@@ -4,9 +4,7 @@ import Parser.Node;
 import Parser.Parser;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.util.ArrayList;
 
 public class Compiler {
@@ -17,19 +15,17 @@ public class Compiler {
         try {
             FileReader inputFile = new FileReader(inputFilePath);
             BufferedReader input = new BufferedReader(inputFile);
-            FileWriter outputFile = new FileWriter(outputFilePath);
-            BufferedWriter output = new BufferedWriter(outputFile);
 
             Lexer lexer = new Lexer(input);
             ArrayList<Token> tokens = lexer.analyze();
             Parser parser = new Parser(tokens);
             Node compUnit = parser.parseCompUnit();
+
+            System.setOut(new java.io.PrintStream(new java.io.FileOutputStream(outputFilePath)));
             compUnit.traversalLRN();
 
             input.close();
-            output.close();
             inputFile.close();
-            outputFile.close();
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
