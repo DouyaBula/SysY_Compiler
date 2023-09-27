@@ -24,4 +24,8 @@ public class Token {
     public BigInteger getLine() {
         return line;
     }
+
+    public boolean is(Symbol type) {
+        return this.type == type;
+    }
 }
