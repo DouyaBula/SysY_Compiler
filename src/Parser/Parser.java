@@ -230,7 +230,7 @@ public class Parser {
     public Node parseInitVal() {
         Node initVal = new Node(Term.InitVal);
         if (stepper.isUnaryExp()) {
-            initVal.addChild(parseConstExp());
+            initVal.addChild(parseExp());
         } else if (stepper.is(Symbol.LBRACE)) {
             initVal.addChild(new Node(stepper.peek()));
             stepper.next();
@@ -343,14 +343,16 @@ public class Parser {
         Node funcFParams = new Node(Term.FuncFParams);
         if (stepper.is(Symbol.INTTK)) {
             funcFParams.addChild(parseFuncFParam());
-            while (stepper.is(Symbol.COMMA)) {
-                funcFParams.addChild(new Node(stepper.peek()));
-                stepper.next();
-                if (stepper.is(Symbol.INTTK)) {
-                    funcFParams.addChild(parseFuncFParam());
-                } else {
-                    error();
-                }
+        } else {
+            error();
+        }
+        while (stepper.is(Symbol.COMMA)) {
+            funcFParams.addChild(new Node(stepper.peek()));
+            stepper.next();
+            if (stepper.is(Symbol.INTTK)) {
+                funcFParams.addChild(parseFuncFParam());
+            } else {
+                error();
             }
         }
         return funcFParams;
@@ -803,6 +805,8 @@ public class Parser {
                     error();
                 }
             }
+        } else {
+            error();
         }
         return funcRParams;
     }
@@ -817,6 +821,7 @@ public class Parser {
         while (stepper.is(Symbol.MULT) ||
                 stepper.is(Symbol.DIV) ||
                 stepper.is(Symbol.MOD)) {
+            mulExp.mergeChildrenTo(new Node(Term.MulExp));
             mulExp.addChild(new Node(stepper.peek()));
             stepper.next();
             if (stepper.isUnaryExp()) {
@@ -837,6 +842,7 @@ public class Parser {
         }
         while (stepper.is(Symbol.PLUS) ||
                 stepper.is(Symbol.MINU)) {
+            addExp.mergeChildrenTo(new Node(Term.AddExp));
             addExp.addChild(new Node(stepper.peek()));
             stepper.next();
             if (stepper.isUnaryExp()) {
@@ -859,6 +865,7 @@ public class Parser {
                 stepper.is(Symbol.LEQ) ||
                 stepper.is(Symbol.GRE) ||
                 stepper.is(Symbol.GEQ)) {
+            relExp.mergeChildrenTo(new Node(Term.RelExp));
             relExp.addChild(new Node(stepper.peek()));
             stepper.next();
             if (stepper.isUnaryExp()) {
@@ -879,6 +886,7 @@ public class Parser {
         }
         while (stepper.is(Symbol.EQL) ||
                 stepper.is(Symbol.NEQ)) {
+            eqExp.mergeChildrenTo(new Node(Term.EqExp));
             eqExp.addChild(new Node(stepper.peek()));
             stepper.next();
             if (stepper.isUnaryExp()) {
@@ -898,6 +906,7 @@ public class Parser {
             error();
         }
         while (stepper.is(Symbol.AND)) {
+            lAndExp.mergeChildrenTo(new Node(Term.LAndExp));
             lAndExp.addChild(new Node(stepper.peek()));
             stepper.next();
             if (stepper.isUnaryExp()) {
@@ -917,6 +926,7 @@ public class Parser {
             error();
         }
         while (stepper.is(Symbol.OR)) {
+            lOrExp.mergeChildrenTo(new Node(Term.LOrExp));
             lOrExp.addChild(new Node(stepper.peek()));
             stepper.next();
             if (stepper.isUnaryExp()) {
@@ -931,7 +941,7 @@ public class Parser {
     public Node parseConstExp() {
         Node constExp = new Node(Term.ConstExp);
         if (stepper.isUnaryExp()) {
-            constExp.addChild(parseLOrExp());
+            constExp.addChild(parseAddExp());
         } else {
             error();
         }

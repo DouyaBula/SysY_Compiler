@@ -6,7 +6,7 @@ import java.util.ArrayList;
 
 public class Node {
     private final Term type;
-
+    private Node parent;
     private final ArrayList<Node> children;
     private final Token token;
     private final boolean isLeaf;
@@ -16,6 +16,7 @@ public class Node {
         this.children = new ArrayList<>();
         this.isLeaf = true;
         this.token = token;
+        this.parent = null;
     }
 
     public Node(Term term) {
@@ -37,8 +38,25 @@ public class Node {
         return token;
     }
 
+    public void setParent(Node parent) {
+        this.parent = parent;
+    }
+
+    public Node getParent() {
+        return parent;
+    }
+
     public void addChild(Node node) {
         children.add(node);
+        node.setParent(this);
+    }
+
+    public void mergeChildrenTo(Node insert) {
+        for (Node child : children) {
+            insert.addChild(child);
+        }
+        children.clear();
+        addChild(insert);
     }
 
     public ArrayList<Node> getChildren() {
