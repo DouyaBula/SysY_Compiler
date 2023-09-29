@@ -13,7 +13,8 @@ public class Parser {
     }
 
     public void error() {
-        System.out.println("error");
+        System.out.printf("error: current token %s line %d\n",
+                stepper.peek().getRaw(), stepper.peek().getLine());
     }
 
     public Node parseCompUnit() {
@@ -108,6 +109,8 @@ public class Parser {
             stepper.next();
             if (stepper.isUnaryExp()) {
                 constDef.addChild(parseConstExp());
+            } else {
+                error();
             }
             if (stepper.is(Symbol.RBRACK)) {
                 constDef.addChild(new Node(stepper.peek()));
@@ -119,7 +122,6 @@ public class Parser {
         if (stepper.is(Symbol.ASSIGN)) {
             constDef.addChild(new Node(stepper.peek()));
             stepper.next();
-            constDef.addChild(parseConstInitVal());
         } else {
             error();
         }
@@ -258,7 +260,7 @@ public class Parser {
 
     public Node parseFuncDef() {
         Node funcDef = new Node(Term.FuncDef);
-        if (stepper.is(Symbol.VOIDTK) || stepper.is(Symbol.MAINTK)) {
+        if (stepper.is(Symbol.VOIDTK) || stepper.is(Symbol.INTTK)) {
             funcDef.addChild(parseFuncType());
         } else {
             error();
@@ -477,6 +479,12 @@ public class Parser {
             } else {
                 error();
             }
+            if (stepper.is(Symbol.SEMICN)) {
+                stmt.addChild(new Node(stepper.peek()));
+                stepper.next();
+            } else {
+                error();
+            }
         } else if (stepper.is(Symbol.LBRACE)) {
             stmt.addChild(parseBlock());
         } else if (stepper.is(Symbol.IFTK)) {
@@ -557,14 +565,32 @@ public class Parser {
         } else if (stepper.is(Symbol.BREAKTK)) {
             stmt.addChild(new Node(stepper.peek()));
             stepper.next();
+            if (stepper.is(Symbol.SEMICN)) {
+                stmt.addChild(new Node(stepper.peek()));
+                stepper.next();
+            } else {
+                error();
+            }
         } else if (stepper.is(Symbol.CONTINUETK)) {
             stmt.addChild(new Node(stepper.peek()));
             stepper.next();
+            if (stepper.is(Symbol.SEMICN)) {
+                stmt.addChild(new Node(stepper.peek()));
+                stepper.next();
+            } else {
+                error();
+            }
         } else if (stepper.is(Symbol.RETURNTK)) {
             stmt.addChild(new Node(stepper.peek()));
             stepper.next();
             if (stepper.isUnaryExp()) {
                 stmt.addChild(parseExp());
+            }
+            if (stepper.is(Symbol.SEMICN)) {
+                stmt.addChild(new Node(stepper.peek()));
+                stepper.next();
+            } else {
+                error();
             }
         } else if (stepper.is(Symbol.PRINTFTK)) {
             stmt.addChild(new Node(stepper.peek()));
@@ -596,10 +622,13 @@ public class Parser {
             } else {
                 error();
             }
-        } else {
-            error();
-        }
-        if (stepper.is(Symbol.SEMICN)) {
+            if (stepper.is(Symbol.SEMICN)) {
+                stmt.addChild(new Node(stepper.peek()));
+                stepper.next();
+            } else {
+                error();
+            }
+        } else if (stepper.is(Symbol.SEMICN)) {
             stmt.addChild(new Node(stepper.peek()));
             stepper.next();
         } else {
@@ -716,9 +745,9 @@ public class Parser {
         Node unaryExp = new Node(Term.UnaryExp);
 
         if (stepper.is(Symbol.LPARENT) ||
-                stepper.is(Symbol.IDENFR) ||
-                (stepper.is(Symbol.INTCON)
-                        && !stepper.peek(1).is(Symbol.LPARENT))) {
+                (stepper.is(Symbol.IDENFR) &&
+                        !stepper.peek(1).is(Symbol.LPARENT)) ||
+                stepper.is(Symbol.INTCON)) {
             unaryExp.addChild(parsePrimaryExp());
         } else if (stepper.is(Symbol.IDENFR) &&
                 stepper.peek(1).is(Symbol.LPARENT)) {
@@ -728,8 +757,6 @@ public class Parser {
             stepper.next();
             if (stepper.isUnaryExp()) {
                 unaryExp.addChild(parseFuncRParams());
-            } else {
-                error();
             }
             if (stepper.is(Symbol.RPARENT)) {
                 unaryExp.addChild(new Node(stepper.peek()));

@@ -24,7 +24,7 @@ public class Stepper {
 
     public Token peek(int offset) {
         if (index + offset >= tokens.size()) {
-            return null;
+            return Token.nullToken;
         }
         return tokens.get(index + offset);
     }
@@ -33,7 +33,7 @@ public class Stepper {
         index++;
         if (index >= tokens.size()) {
             index = tokens.size();
-            return null;
+            return Token.nullToken;
         } else {
             return tokens.get(index - 1);
         }
@@ -43,7 +43,7 @@ public class Stepper {
         index += offset;
         if (index >= tokens.size()) {
             index = tokens.size();
-            return null;
+            return Token.nullToken;
         } else {
             return tokens.get(index - offset);
         }
@@ -51,7 +51,7 @@ public class Stepper {
 
     public boolean is(Symbol... tokens) {
         for (int i = 0; i < tokens.length; i++) {
-            if (peek(i) == null || !peek(i).is(tokens[i])) {
+            if (peek(i) == Token.nullToken || !peek(i).is(tokens[i])) {
                 return false;
             }
         }
@@ -76,7 +76,8 @@ public class Stepper {
                 || peek().is(Symbol.BREAKTK)
                 || peek().is(Symbol.CONTINUETK)
                 || peek().is(Symbol.RETURNTK)
-                || peek().is(Symbol.PRINTFTK);
+                || peek().is(Symbol.PRINTFTK)
+                || peek().is(Symbol.SEMICN);
     }
 
     public boolean isGetintStmt() {

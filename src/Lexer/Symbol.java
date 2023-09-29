@@ -41,6 +41,7 @@ public enum Symbol {
     RBRACK,
     LBRACE,
     RBRACE,
+    NULL,
     ;
     public final static HashMap<String, Symbol> lookupTable = new HashMap<>() {{
         put("main", MAINTK);

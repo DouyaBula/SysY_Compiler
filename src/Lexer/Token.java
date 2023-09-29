@@ -7,6 +7,8 @@ public class Token {
     private final String raw;
     private final BigInteger line;
 
+    public final static Token nullToken = new Token(Symbol.NULL, "", BigInteger.ZERO);
+
     public Token(Symbol type, String raw, BigInteger line) {
         this.type = type;
         this.raw = raw;
