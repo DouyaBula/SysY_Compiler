@@ -487,6 +487,14 @@ public class Parser {
             } else {
                 error();
             }
+        } else if (stepper.isUnaryExp()) {
+            stmt.addChild(parseExp());
+            if (stepper.is(Symbol.SEMICN)) {
+                stmt.addChild(new Node(stepper.peek()));
+                stepper.next();
+            } else {
+                error();
+            }
         } else if (stepper.is(Symbol.LBRACE)) {
             stmt.addChild(parseBlock());
         } else if (stepper.is(Symbol.IFTK)) {
