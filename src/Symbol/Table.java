@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class Table {
-    private Table parent;
-    private ArrayList<Table> children;
+    private final Table parent;
+    private final ArrayList<Table> children;
     private final HashMap<String, Attribute> content;
 
     public Table(Table parent) {

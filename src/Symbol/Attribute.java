@@ -4,15 +4,15 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 
 public class Attribute {
-    private BigInteger line;
-    private Table table;
-    private String name;
-    private Type type;
+    private final BigInteger line;
+    private final Table table;
+    private final String name;
+    private final Type type;
     private int dimCnt;
     private BigInteger dim1;
     private BigInteger dim2;
     private Type reType;
-    private ArrayList<Integer> paramDimList;
+    private final ArrayList<Integer> paramDimList;
 
     public Attribute(BigInteger line, Table table, String name, Type type) {
         this.line = line;

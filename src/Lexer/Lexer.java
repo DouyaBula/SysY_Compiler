@@ -23,7 +23,7 @@ public class Lexer {
         this.reporter = reporter;
     }
 
-    public void error(Error error) throws IOException {
+    public void error(Error error) {
         reporter.report(error, lineCnt);
         this.error++;
     }

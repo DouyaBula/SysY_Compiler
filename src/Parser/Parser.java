@@ -1052,7 +1052,7 @@ public class Parser {
 
     private void checkConst() {
         Attribute lval = getSymbolAll(stepper.peek().getRaw());
-        if (lval.getType() == Type.CONST) {
+        if (lval != null && lval.getType() == Type.CONST) {
             reporter.report(Error.h, stepper.peek().getLine());
         }
     }
