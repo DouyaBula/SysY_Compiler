@@ -1,5 +1,8 @@
 package Lexer;
 
+import Error.Error;
+import Error.Reporter;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -10,12 +13,24 @@ public class Lexer {
     private final ArrayList<Token> tokens;
     private BigInteger lineCnt;
     private int error;
+    private final Reporter reporter;
 
-    public Lexer(BufferedReader input) {
+    public Lexer(BufferedReader input, Reporter reporter) {
         this.input = input;
         this.tokens = new ArrayList<>();
         this.lineCnt = BigInteger.ZERO;
         this.error = 0;
+        this.reporter = reporter;
+    }
+
+    public void error(Error error) throws IOException {
+        reporter.report(error, lineCnt);
+        this.error++;
+    }
+
+    public void error() {
+        System.out.println("Error: " + lineCnt);
+        error++;
     }
 
     public ArrayList<Token> analyze() throws IOException {
@@ -65,9 +80,18 @@ public class Lexer {
                 else if (stepper.peek() == '\"') {
                     String name = stepper.getFormatStr();
                     if (name == null) {
-                        error();
+                        error(Error.a);
+                        Token fmtStr = new Token(Symbol.STRCON, "wrongFormat", lineCnt);
+                        fmtStr.illegal();
+                        tokens.add(fmtStr);
+                        while (stepper.peek() != '\"') {
+                            stepper.next();
+                        }
                     } else {
-                        tokens.add(new Token(Symbol.STRCON, name, lineCnt));
+                        Token fmtStr = new Token(Symbol.STRCON, name, lineCnt);
+                        tokens.add(fmtStr);
+                        int formatCharCnt = name.split("%").length - 1;
+                        fmtStr.setFormatCharCnt(formatCharCnt);
                     }
                 }
                 // 常数检测
@@ -179,8 +203,4 @@ public class Lexer {
         }
     }
 
-    public void error() {
-        System.out.println("Error: " + lineCnt);
-        error++;
-    }
 }

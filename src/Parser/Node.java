@@ -59,6 +59,18 @@ public class Node {
         addChild(insert);
     }
 
+    public Node getLastChild() {
+        return getChild(children.size() - 1);
+    }
+
+    public Node getFirstChild() {
+        return getChild(0);
+    }
+
+    public Node getChild(int index) {
+        return children.get(index);
+    }
+
     public ArrayList<Node> getChildren() {
         return children;
     }
