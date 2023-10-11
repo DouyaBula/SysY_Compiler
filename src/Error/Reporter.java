@@ -3,9 +3,11 @@ package Error;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.ArrayList;
 
 public class Reporter {
-    BufferedWriter output;
+    private final BufferedWriter output;
+    private final ArrayList<String> errorList = new ArrayList<>();
 
     public Reporter(BufferedWriter output) {
         this.output = output;
@@ -13,11 +15,14 @@ public class Reporter {
 
     // TODO: 改为按行号顺序输出
     public void report(Error error, BigInteger line){
-        System.out.println("Error at line " + line + ": " + error);
-        try {
-            output.write(line + " " + error + "\n");
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        System.out.println(line + " " + error);
+        errorList.add(line + " " + error);
+    }
+
+    public void print() throws IOException {
+        errorList.sort(new ListComparator());
+        for (String error : errorList) {
+            output.write(error+"\n");
         }
     }
 }

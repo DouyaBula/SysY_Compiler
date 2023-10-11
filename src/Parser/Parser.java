@@ -35,7 +35,7 @@ public class Parser {
 
     private Attribute getSymbolAll(String name) {
         Table table = curTable;
-        while (!table.isRoot()) {
+        while (table != null) {
             Attribute attr = table.getSymbol(name);
             if (attr != null) {
                 return attr;
@@ -59,7 +59,7 @@ public class Parser {
 
     private boolean hasSymbolAll(String name) {
         Table table = curTable;
-        while (!table.isRoot()) {
+        while (table != null) {
             if (table.getSymbol(name) != null) {
                 return true;
             }
@@ -327,9 +327,9 @@ public class Parser {
         }
         if (stepper.is(Symbol.IDENFR)) {
             funcDef.addChild(new Node(stepper.peek()));
-            stepper.next();
             Token temp = stepper.peek();
             att = new Attribute(temp.getLine(), curTable, temp.getRaw(), Type.FUNCTION);
+            stepper.next();
         } else {
             error();
         }
@@ -512,8 +512,8 @@ public class Parser {
         Node stmt = new Node(Term.Stmt);
         if (stepper.is(Symbol.IDENFR)) {
             if (stepper.isAssignStmt()) {
-                stmt.addChild(parseLVal());
                 checkConst();
+                stmt.addChild(parseLVal());
                 if (stepper.is(Symbol.ASSIGN)) {
                     stmt.addChild(new Node(stepper.peek()));
                     stepper.next();
@@ -526,8 +526,8 @@ public class Parser {
                     error();
                 }
             } else if (stepper.isGetintStmt()) {
-                stmt.addChild(parseLVal());
                 checkConst();
+                stmt.addChild(parseLVal());
                 if (stepper.is(Symbol.ASSIGN)) {
                     stmt.addChild(new Node(stepper.peek()));
                     stepper.next();
@@ -790,6 +790,7 @@ public class Parser {
                 return unaryExp;
             }
             Token funcName = stepper.peek();
+            BigInteger line = funcName.getLine();
             Attribute func = getSymbolAll(funcName.getRaw());
             unaryExp.addChild(new Node(stepper.peek()));
             stepper.next();
@@ -798,11 +799,11 @@ public class Parser {
             boolean hasParam = false;
             if (stepper.isUnaryExp()) {
                 hasParam = true;
-                unaryExp.addChild(parseFuncRParams(func));
+                unaryExp.addChild(parseFuncRParams(func, line));
             }
             assert func != null;
             if (!hasParam && func.getParamNum() > 0) {
-                reporter.report(Error.d, funcName.getLine());
+                reporter.report(Error.d, line);
             }
             checkRparent(unaryExp);
         } else if (stepper.is(Symbol.PLUS) ||
@@ -832,18 +833,18 @@ public class Parser {
         return unaryOp;
     }
 
-    public Node parseFuncRParams(Attribute func) {
+    public Node parseFuncRParams(Attribute func, BigInteger line) {
         Node funcRParams = new Node(Term.FuncRParams);
         int paramNum = 0;
         if (stepper.isUnaryExp()) {
-            checkRParamDim(func, paramNum);
+            checkRParamDim(func, paramNum, line);
             funcRParams.addChild(parseExp());
             paramNum++;
             while (stepper.is(Symbol.COMMA)) {
                 funcRParams.addChild(new Node(stepper.peek()));
                 stepper.next();
                 if (stepper.isUnaryExp()) {
-                    checkRParamDim(func, paramNum);
+                    checkRParamDim(func, paramNum, line);
                     funcRParams.addChild(parseExp());
                     paramNum++;
                 } else {
@@ -854,7 +855,7 @@ public class Parser {
             error();
         }
         if (paramNum != func.getParamNum()) {
-            reporter.report(Error.d, func.getLine());
+            reporter.report(Error.d, line);
         }
         return funcRParams;
     }
@@ -1005,28 +1006,29 @@ public class Parser {
         return true;
     }
 
-    private void checkRParamDim(Attribute func, int paramNum) {
+    private void checkRParamDim(Attribute func, int paramNum, BigInteger line) {
         int dim = 0;
         if (stepper.is(Symbol.IDENFR)) {
             Attribute attr = getSymbolAll(stepper.peek().getRaw());
             int i = 1;
-            if (stepper.peek(i).is(Symbol.LBRACK)) {
+            while (stepper.peek(i).is(Symbol.LBRACK)) {
                 dim++;
-            }
-            while (!stepper.peek(i).is(Symbol.RBRACK)) {
+                while (!stepper.peek(i).is(Symbol.RBRACK)) {
+                    i++;
+                }
                 i++;
-            }
-            if (stepper.peek(i).is(Symbol.LBRACK)) {
-                dim++;
             }
             if (attr != null) {
                 dim = attr.getDimCnt() - dim;
             } else {
-                dim = -1;
+                return;
             }
         }
-        if (dim != -1 && dim != func.getParamDim(paramNum)) {
-            reporter.report(Error.e, stepper.peek().getLine());
+        if (func.getParamDim(paramNum) == -1) {
+            return;
+        }
+        if (dim != func.getParamDim(paramNum)) {
+            reporter.report(Error.e, line);
         }
     }
 
@@ -1034,7 +1036,11 @@ public class Parser {
         if (isFunc && needRet) {
             boolean hasLastRet = false;
             Node lastStmt = block.getLastChild(); // blockItem
-            lastStmt = lastStmt.getLastChild(); // should be stmt rather than decl
+            lastStmt = lastStmt.getLastChild(); // should be stmt rather than decl or null
+            if (lastStmt == null) {
+                reporter.report(Error.g, stepper.peek().getLine());
+                return;
+            }
             if (lastStmt.getType() == Term.Stmt) {
                 Node firstChild = lastStmt.getFirstChild(); // should be return
                 if (firstChild.isLeaf() && firstChild.getToken().is(Symbol.RETURNTK)) {
@@ -1060,28 +1066,30 @@ public class Parser {
     private void checkSemicn(Node node) {
         if (stepper.is(Symbol.SEMICN)) {
             node.addChild(new Node(stepper.peek()));
+            stepper.next();
         } else {
-            reporter.report(Error.i, stepper.peek().getLine());
+            reporter.report(Error.i, stepper.peek(-1).getLine());
         }
-        stepper.next();
     }
 
     private void checkRparent(Node node) {
         if (stepper.is(Symbol.RPARENT)) {
             node.addChild(new Node(stepper.peek()));
+            stepper.next();
         } else {
-            reporter.report(Error.j, stepper.peek().getLine());
+            node.addChild(new Node(
+                    new Token(Symbol.RPARENT, ")", BigInteger.ZERO)));
+            reporter.report(Error.j, stepper.peek(-1).getLine());
         }
-        stepper.next();
     }
 
     private void checkRbrack(Node node) {
         if (stepper.is(Symbol.RBRACK)) {
             node.addChild(new Node(stepper.peek()));
+            stepper.next();
         } else {
             reporter.report(Error.k, stepper.peek().getLine());
         }
-        stepper.next();
     }
 
     private void checkLoop() {

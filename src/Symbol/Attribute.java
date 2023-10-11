@@ -60,8 +60,12 @@ public class Attribute {
         return paramDimList.size();
     }
 
-    public int getParamDim(int index){
-        return paramDimList.get(index);
+    public int getParamDim(int paramIndex) {
+        if (paramIndex < paramDimList.size()) {
+            return paramDimList.get(paramIndex);
+        } else {
+            return -1;
+        }
     }
 
     public int getDimCnt() {

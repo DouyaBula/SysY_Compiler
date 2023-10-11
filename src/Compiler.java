@@ -25,6 +25,7 @@ public class Compiler {
             ArrayList<Token> tokens = lexer.analyze();
             Parser parser = new Parser(tokens, reporter);
             parser.parseCompUnit();
+            reporter.print();
 
             input.close();
             inputFile.close();

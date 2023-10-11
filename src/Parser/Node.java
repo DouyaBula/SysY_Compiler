@@ -68,6 +68,9 @@ public class Node {
     }
 
     public Node getChild(int index) {
+        if (index < 0 || index >= children.size()) {
+            return null;
+        }
         return children.get(index);
     }
 
