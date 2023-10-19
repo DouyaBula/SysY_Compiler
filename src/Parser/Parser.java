@@ -19,7 +19,8 @@ public class Parser {
     private Table curTable;
     private final Attribute attTem = new Attribute(
             BigInteger.ZERO, null, "", Type.VOID);
-    private boolean isInFuncBlock;
+    private boolean isInFuncDef;
+    private int level;
     private boolean needRet;
     private boolean isInLoopBlock;
 
@@ -28,7 +29,8 @@ public class Parser {
         this.reporter = reporter;
         this.tables = new HashSet<>();
         curTable = new Table(null);
-        this.isInFuncBlock = false;
+        this.isInFuncDef = false;
+        this.level = 0;
         this.needRet = false;
         this.isInLoopBlock = false;
     }
@@ -333,6 +335,7 @@ public class Parser {
         } else {
             error();
         }
+        addSymbol(att.getName(), att);
         enterField();
         if (stepper.is(Symbol.LPARENT)) {
             funcDef.addChild(new Node(stepper.peek()));
@@ -346,7 +349,7 @@ public class Parser {
         checkRparent(funcDef);
         if (stepper.is(Symbol.LBRACE)) {
             needRet = type == Type.INT;
-            isInFuncBlock = true;
+            isInFuncDef = true;
             funcDef.addChild(parseBlock());
         } else {
             error();
@@ -354,9 +357,8 @@ public class Parser {
         quitField();
         att.setReType(type);
         att.setDim(type == Type.INT ? 0 : -114514);
-        addSymbol(att.getName(), att);
         needRet = false;
-        isInFuncBlock = false;
+        isInFuncDef = false;
         return funcDef;
     }
 
@@ -379,6 +381,7 @@ public class Parser {
         } else {
             error();
         }
+        enterField();
         if (stepper.is(Symbol.LPARENT)) {
             mainFuncDef.addChild(new Node(stepper.peek()));
             stepper.next();
@@ -388,13 +391,14 @@ public class Parser {
         checkRparent(mainFuncDef);
         if (stepper.is(Symbol.LBRACE)) {
             needRet = true;
-            isInFuncBlock = true;
+            isInFuncDef = true;
             mainFuncDef.addChild(parseBlock());
         } else {
             error();
         }
+        quitField();
         needRet = false;
-        isInFuncBlock = false;
+        isInFuncDef = false;
         return mainFuncDef;
     }
 
@@ -470,10 +474,11 @@ public class Parser {
     }
 
     public Node parseBlock() {
+        level++;
         Node block = new Node(Term.Block);
         if (stepper.is(Symbol.LBRACE)) {
             block.addChild(new Node(stepper.peek()));
-            if (!isInFuncBlock) {
+            if (!isInFuncDef || level > 1) {
                 enterField();
             }
             stepper.next();
@@ -487,17 +492,18 @@ public class Parser {
         }
 
         // Error g: check the last stmt is return
-        checkNeedRet(isInFuncBlock, needRet, block);
+        checkNeedRet(isInFuncDef && level == 1, needRet, block);
 
         if (stepper.is(Symbol.RBRACE)) {
             block.addChild(new Node(stepper.peek()));
-            if (!isInFuncBlock) {
+            if (!isInFuncDef || level > 1) {
                 quitField();
             }
             stepper.next();
         } else {
             error();
         }
+        level--;
         return block;
     }
 
@@ -642,7 +648,7 @@ public class Parser {
                 stmt.addChild(parseExp());
             }
 
-            if (isInFuncBlock && !needRet && hasRet) {
+            if (isInFuncDef && !needRet && hasRet) {
                 reporter.report(Error.f, line);
             }
 
@@ -857,7 +863,7 @@ public class Parser {
         } else {
             error();
         }
-        if (paramNum != func.getParamNum()) {
+        if (func != null && paramNum != func.getParamNum()) {
             reporter.report(Error.d, line);
         }
         return funcRParams;
