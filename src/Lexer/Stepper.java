@@ -89,7 +89,9 @@ public class Stepper {
                 break;
             }
         }
-        pos--;
+        if (word != null) {
+            pos--;
+        }
         return word == null ? null : word.toString();
     }
 

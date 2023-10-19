@@ -353,6 +353,7 @@ public class Parser {
         }
         quitField();
         att.setReType(type);
+        att.setDim(type == Type.INT ? 0 : -114514);
         addSymbol(att.getName(), att);
         needRet = false;
         isInFuncBlock = false;
@@ -369,6 +370,11 @@ public class Parser {
         }
         if (stepper.is(Symbol.MAINTK)) {
             mainFuncDef.addChild(new Node(stepper.peek()));
+            Attribute main = new Attribute(
+                    stepper.peek().getLine(), curTable, "main", Type.FUNCTION);
+            main.setDim(0);
+            main.setReType(Type.INT);
+            addSymbol("main", main);
             stepper.next();
         } else {
             error();
@@ -786,9 +792,7 @@ public class Parser {
             unaryExp.addChild(parsePrimaryExp());
         } else if (stepper.is(Symbol.IDENFR) &&
                 stepper.peek(1).is(Symbol.LPARENT)) {
-            if (!checkIdenfr(stepper.peek())) {
-                return unaryExp;
-            }
+            checkIdenfr(stepper.peek());
             Token funcName = stepper.peek();
             BigInteger line = funcName.getLine();
             Attribute func = getSymbolAll(funcName.getRaw());
@@ -801,8 +805,7 @@ public class Parser {
                 hasParam = true;
                 unaryExp.addChild(parseFuncRParams(func, line));
             }
-            assert func != null;
-            if (!hasParam && func.getParamNum() > 0) {
+            if (func != null && !hasParam && func.getParamNum() > 0) {
                 reporter.report(Error.d, line);
             }
             checkRparent(unaryExp);
@@ -1007,22 +1010,26 @@ public class Parser {
     }
 
     private void checkRParamDim(Attribute func, int paramNum, BigInteger line) {
+        if (func == null) {
+            return;
+        }
         int dim = 0;
         if (stepper.is(Symbol.IDENFR)) {
             Attribute attr = getSymbolAll(stepper.peek().getRaw());
-            int i = 1;
-            while (stepper.peek(i).is(Symbol.LBRACK)) {
-                dim++;
-                while (!stepper.peek(i).is(Symbol.RBRACK)) {
-                    i++;
-                }
-                i++;
-            }
-            if (attr != null) {
-                dim = attr.getDimCnt() - dim;
-            } else {
+            if (attr == null) {
                 return;
             }
+            if (attr.getType() != Type.FUNCTION) {
+                int i = 1;
+                while (stepper.peek(i).is(Symbol.LBRACK)) {
+                    dim++;
+                    while (!stepper.peek(i).is(Symbol.RBRACK)) {
+                        i++;
+                    }
+                    i++;
+                }
+            }
+            dim = attr.getDimCnt() - dim;
         }
         if (func.getParamDim(paramNum) == -1) {
             return;
@@ -1044,10 +1051,7 @@ public class Parser {
             if (lastStmt.getType() == Term.Stmt) {
                 Node firstChild = lastStmt.getFirstChild(); // should be return
                 if (firstChild.isLeaf() && firstChild.getToken().is(Symbol.RETURNTK)) {
-                    Node secondChild = lastStmt.getChild(1); // semicn or exp
-                    if (!secondChild.isLeaf() || !secondChild.getToken().is(Symbol.SEMICN)) {
-                        hasLastRet = true;
-                    }
+                    hasLastRet = true;
                 }
             }
             if (!hasLastRet) {

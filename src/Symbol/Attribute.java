@@ -26,6 +26,9 @@ public class Attribute {
     public void addDim() {
         this.dimCnt++;
     }
+    public void setDim(int dim) {
+        this.dimCnt = dim;
+    }
 
     public void setReType(Type reType) {
         this.reType = reType;
