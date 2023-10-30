@@ -86,8 +86,8 @@ public class Stepper {
         }
         int pos = 1;
         while (!peek(pos).is(Symbol.SEMICN)) {
-            if (peek(pos).is(Symbol.GETINTTK)) {
-                return true;
+            if (peek(pos).is(Symbol.ASSIGN)) {
+                return peek(pos + 1).is(Symbol.GETINTTK);
             }
             pos++;
         }
@@ -100,15 +100,8 @@ public class Stepper {
         }
         int pos = 1;
         while (!peek(pos).is(Symbol.SEMICN)) {
-            if (peek(pos).is(Symbol.GETINTTK)) {
-                return false;
-            }
-            pos++;
-        }
-        pos = 1;
-        while (!peek(pos).is(Symbol.SEMICN)) {
             if (peek(pos).is(Symbol.ASSIGN)) {
-                return true;
+                return !peek(pos + 1).is(Symbol.GETINTTK);
             }
             pos++;
         }
