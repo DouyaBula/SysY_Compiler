@@ -1,7 +1,11 @@
 import Error.Reporter;
+import IR.Translator;
+import IR.TupleList;
 import Lexer.Lexer;
 import Lexer.Token;
+import Parser.Node;
 import Parser.Parser;
+import Symbol.Table;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -24,8 +28,11 @@ public class Compiler {
             Lexer lexer = new Lexer(input, reporter);
             ArrayList<Token> tokens = lexer.analyze();
             Parser parser = new Parser(tokens, reporter);
-            parser.parseCompUnit();
+            Node root = parser.parseCompUnit();
             reporter.print();
+            Translator translator = new Translator(root);
+            translator.translate();
+            TupleList.getInstance().print();
 
             input.close();
             inputFile.close();

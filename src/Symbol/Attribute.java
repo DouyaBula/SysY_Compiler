@@ -9,8 +9,6 @@ public class Attribute {
     private final String name;
     private final Type type;
     private int dimCnt;
-    private BigInteger dim1;
-    private BigInteger dim2;
     private Type reType;
     private final ArrayList<Integer> paramDimList;
 

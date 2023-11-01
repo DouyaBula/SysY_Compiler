@@ -1,5 +1,6 @@
 package Parser;
 
+import Lexer.Symbol;
 import Lexer.Token;
 
 import java.util.ArrayList;
@@ -32,6 +33,34 @@ public class Node {
 
     public Term getType() {
         return type;
+    }
+
+    public boolean is(Term term) {
+        return type != null && type == term;
+    }
+
+    public boolean is(Symbol symbol) {
+        if (!isLeaf) return false;
+        assert token != null;
+        return token.is(symbol);
+    }
+
+    public boolean contains(Object... objects) {
+        for (int i = 0; i < objects.length; i++) {
+            if (getChild(i) == null) {
+                return false;
+            }
+            if (objects[i] instanceof Term) {
+                if (!getChild(i).is((Term) objects[i])) {
+                    return false;
+                }
+            } else if (objects[i] instanceof Symbol) {
+                if (!getChild(i).is((Symbol) objects[i])) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     public Token getToken() {
@@ -76,10 +105,6 @@ public class Node {
 
     public ArrayList<Node> getChildren() {
         return children;
-    }
-
-    public Node getChildren(int index) {
-        return children.get(index);
     }
 
     public void traversalLRN() {
