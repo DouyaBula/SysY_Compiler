@@ -32,9 +32,9 @@ public class Compiler {
             Node root = parser.parseCompUnit();
             reporter.print();
             Translator translator = new Translator(root);
-//            translator.translate();
-//            TableTree.getInstance().printTableTree();
-//            TupleList.getInstance().print();
+            translator.translate();
+            TableTree.getInstance().printTableTree();
+            TupleList.getInstance().print();
 
             input.close();
             inputFile.close();
