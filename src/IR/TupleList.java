@@ -144,4 +144,12 @@ public class TupleList {
         addTuple(Operator.STORE, base, offset, result);
     }
 
+    public void addEnterBlock() {
+        addTuple(Operator.ENTERBLOCK, null, null, null);
+    }
+
+    public void addExitBlock() {
+        addTuple(Operator.EXITBLOCK, null, null, null);
+    }
+
 }

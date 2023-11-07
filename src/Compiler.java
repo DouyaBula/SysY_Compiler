@@ -1,4 +1,5 @@
 import Error.Reporter;
+import IR.TableTree;
 import IR.Translator;
 import IR.TupleList;
 import Lexer.Lexer;
@@ -31,8 +32,9 @@ public class Compiler {
             Node root = parser.parseCompUnit();
             reporter.print();
             Translator translator = new Translator(root);
-            translator.translate();
-            TupleList.getInstance().print();
+//            translator.translate();
+//            TableTree.getInstance().printTableTree();
+//            TupleList.getInstance().print();
 
             input.close();
             inputFile.close();

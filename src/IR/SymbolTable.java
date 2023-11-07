@@ -63,7 +63,7 @@ public class SymbolTable {
         StringBuilder sb = new StringBuilder();
         sb.append("Depth").append(getDepth()).append("-SymbolTable: \n");
         for (String key : content.keySet()) {
-            sb.append(key).append(" : ").append(content.get(key)).append("\n");
+            sb.append(content.get(key)).append("\n");
         }
         return sb.toString();
     }

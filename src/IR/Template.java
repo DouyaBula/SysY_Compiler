@@ -83,8 +83,9 @@ public class Template {
     @Override
     public String toString() {
         return switch (type) {
-            case VAR, CONST -> String.format("%s: %s [%s][%s] = %s", type, name, dim1, dim2, initVal);
-            case FUNC -> String.format("%s: %s (%s)", type, name, paramDimList);
+            case VAR, CONST -> String.format("%s %s [%s][%s] = %s", type, name, dim1, dim2, initVal);
+            case FUNC -> String.format("%s %s (%s)", type, name, paramDimList);
+            case PARAM -> String.format("%s %s [%s][%s]", type, name, dim1, dim2);
             default -> throw new IllegalStateException("Unexpected value: " + type);
         };
     }

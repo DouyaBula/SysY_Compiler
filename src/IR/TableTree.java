@@ -80,6 +80,11 @@ public class TableTree {
     }
 
     public void printTableTree() {
+        System.out.println("String Pool:");
+        for (int i = 0; i < stringCnt; i++) {
+            System.out.println("#str" + i + ": " + stringPool.get(i));
+        }
+        System.out.println();
         rootTable.bfsPrint();
     }
 }

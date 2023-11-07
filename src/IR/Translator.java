@@ -189,11 +189,13 @@ public class Translator {
     }
 
     private void translateBlock(Node node) {
+        TupleList.getInstance().addEnterBlock();
         for (Node child : node.getChildren()) {
             if (child.is(Term.BlockItem)) {
                 translateBlockItem(child);
             }
         }
+        TupleList.getInstance().addExitBlock();
     }
 
     private void translateBlockItem(Node node) {

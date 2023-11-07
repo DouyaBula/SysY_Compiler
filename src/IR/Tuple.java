@@ -34,6 +34,8 @@ public class Tuple {
     public String toString() {
         if (operator == Operator.LABEL){
             return operand1.toString()+": ";
+        } else if (operator==Operator.ENTERBLOCK || operator==Operator.EXITBLOCK){
+            return operator.toString();
         }
         return String.format("%-10s", operator) +
                 (operand1 == null ? String.format("%-15s", "null") : String.format("%-15s", operand1)) +

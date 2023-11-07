@@ -32,7 +32,6 @@ public enum Operator {
     GEQ,    // >=
 
     // Address
-    ARRAY,  // []
     CALL,   // ()
     RETURN,    // return
     LABEL,  // "label"
@@ -47,6 +46,10 @@ public enum Operator {
     // IO
     READ,   // read
     PRINT,  // print
+
+    // Symbol
+    ENTERBLOCK, // enterblock
+    EXITBLOCK,  // exitblock
     ;
 
     public final static HashMap<Operator, String> tupleName = new HashMap<>() {{
@@ -68,8 +71,7 @@ public enum Operator {
         put(GT, ">");
         put(LEQ, "<=");
         put(GEQ, ">=");
-        put(ARRAY, "[]");
-        put(CALL, "()");
+        put(CALL, "CALL");
         put(RETURN, "RETURN");
         put(LABEL, "LABEL");
         put(GOTO, "GOTO");
@@ -79,6 +81,8 @@ public enum Operator {
         put(LOAD, "LOAD");
         put(READ, "READ");
         put(PRINT, "PRINT");
+        put(ENTERBLOCK, "ENTERBLOCK");
+        put(EXITBLOCK, "EXITBLOCK");
     }};
 
     @Override
