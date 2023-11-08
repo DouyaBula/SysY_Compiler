@@ -46,10 +46,6 @@ public enum Operator {
     // IO
     READ,   // read
     PRINT,  // print
-
-    // Symbol
-    ENTERBLOCK, // enterblock
-    EXITBLOCK,  // exitblock
     ;
 
     public final static HashMap<Operator, String> tupleName = new HashMap<>() {{
@@ -81,8 +77,6 @@ public enum Operator {
         put(LOAD, "LOAD");
         put(READ, "READ");
         put(PRINT, "PRINT");
-        put(ENTERBLOCK, "ENTERBLOCK");
-        put(EXITBLOCK, "EXITBLOCK");
     }};
 
     @Override

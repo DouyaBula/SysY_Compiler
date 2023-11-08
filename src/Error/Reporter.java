@@ -13,7 +13,6 @@ public class Reporter {
         this.output = output;
     }
 
-    // TODO: 改为按行号顺序输出
     public void report(Error error, BigInteger line){
         System.out.println(line + " " + error);
         errorList.add(line + " " + error);
@@ -24,5 +23,9 @@ public class Reporter {
         for (String error : errorList) {
             output.write(error+"\n");
         }
+    }
+
+    public boolean hasError(){
+        return !errorList.isEmpty();
     }
 }

@@ -75,16 +75,25 @@ public class Translator {
             } else if (child.is(Term.ConstExp)) {
                 dims[dimCnt++] = translateConstExp(child);
             } else if (child.is(Term.ConstInitVal)) {
-                initVal.add(translateConstInitVal(child));
+                initVal = translateConstInitVal(child);
             }
         }
         TableTree.getInstance().addConstDef(name, dims[0], dims[1], initVal);
         TupleList.getInstance().addDef(name);
     }
 
-    private Operand translateConstInitVal(Node node) {
-        Node constExp = node.getChild(0);
-        return translateConstExp(constExp);
+    private ArrayList<Operand> translateConstInitVal(Node node) {
+        ArrayList<Operand> initVal = new ArrayList<>();
+        if (node.getFirstChild().is(Term.ConstExp)) {
+            initVal.add(translateConstExp(node.getFirstChild()));
+        } else {
+            for (Node child : node.getChildren()) {
+                if (child.is(Term.ConstInitVal)) {
+                    initVal.addAll(translateConstInitVal(child));
+                }
+            }
+        }
+        return initVal;
     }
 
     private void translateVarDecl(Node node) {
@@ -128,7 +137,7 @@ public class Translator {
     private void translateFuncDef(Node node) {
         String name = "firetruck";
         boolean hasRet = false;
-        ArrayList<Operand> paramDimList;
+        ArrayList<Operand> paramDimList = new ArrayList<>();
         for (Node child : node.getChildren()) {
             if (child.is(Term.FuncType)) {
                 hasRet = child.getChild(0).is(Symbol.INTTK);
@@ -138,8 +147,8 @@ public class Translator {
                 TableTree.getInstance().enterBlock();
             } else if (child.is(Term.FuncFParams)) {
                 paramDimList = translateFuncFParams(child);
-                TableTree.getInstance().addFuncDefToParent(name, hasRet, paramDimList);
             } else if (child.is(Term.Block)) {
+                TableTree.getInstance().addFuncDefToParent(name, hasRet, paramDimList);
                 translateBlock(child);
                 TableTree.getInstance().exitBlock();
             }
@@ -189,13 +198,11 @@ public class Translator {
     }
 
     private void translateBlock(Node node) {
-        TupleList.getInstance().addEnterBlock();
         for (Node child : node.getChildren()) {
             if (child.is(Term.BlockItem)) {
                 translateBlockItem(child);
             }
         }
-        TupleList.getInstance().addExitBlock();
     }
 
     private void translateBlockItem(Node node) {
@@ -211,6 +218,8 @@ public class Translator {
     private void translateStmt(Node node) {
         if (node.contains(Term.LVal, Symbol.ASSIGN, Term.Exp)) {
             translateStmt_Assign(node);
+        } else if (node.contains(Term.Exp)) {
+            translateExp(node.getChild(0));
         } else if (node.contains(Term.Block)) {
             TableTree.getInstance().enterBlock();
             translateBlock(node.getChild(0));
@@ -340,6 +349,8 @@ public class Translator {
         for (Node child : node.getChildren()) {
             if (child.is(Symbol.STRCON)) {
                 str = child.getToken().getRaw();
+                // remove \"
+                str = str.substring(1, str.length() - 1);
                 splitStr = str.split("%d", -1);
             } else if (child.is(Term.Exp)) {
                 expList.add(translateExp(child));
@@ -381,7 +392,7 @@ public class Translator {
         int dimCnt = 0;
         Operand[] dims = {null, null};
         for (Node child : node.getChildren()) {
-            if (child.is(Symbol.LBRACK)) {
+            if (child.is(Term.Exp)) {
                 dims[dimCnt++] = translateExp(child);
             } else if (child.is(Symbol.IDENFR)) {
                 name = child.getToken().getRaw();
@@ -449,13 +460,21 @@ public class Translator {
         if (node.contains(Term.PrimaryExp)) {
             result = translatePrimaryExp(node.getChild(0));
         } else if (node.contains(Symbol.IDENFR)) {
-            result = Operand.getTempOperand();
+            boolean hasRet = TableTree.getInstance().getTemplate(
+                    node.getChild(0).getToken().getRaw()).hasRet();
+            if (hasRet) {
+                result = Operand.getTempOperand();
+            }
             String name = node.getChild(0).getToken().getRaw();
             if (node.getChild(2).is(Term.FuncRParams)) {
                 translateFuncRParams(node.getChild(2));
             }
             Operand def = Operand.getDefOperand(name);
-            TupleList.getInstance().addCall(def, result);
+            if (hasRet) {
+                TupleList.getInstance().addCall(def, result);
+            } else {
+                TupleList.getInstance().addCall(def);
+            }
         } else if (node.contains(Term.UnaryOp)) {
             Node unaryOp = node.getChild(0).getChild(0);
             Node unaryExp = node.getChild(1);

@@ -56,7 +56,7 @@ public class Template {
         return dim2;
     }
 
-    public boolean getHasRet() {
+    public boolean hasRet() {
         return hasRet;
     }
 

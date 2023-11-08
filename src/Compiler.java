@@ -6,7 +6,6 @@ import Lexer.Lexer;
 import Lexer.Token;
 import Parser.Node;
 import Parser.Parser;
-import Symbol.Table;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -31,10 +30,13 @@ public class Compiler {
             Parser parser = new Parser(tokens, reporter);
             Node root = parser.parseCompUnit();
             reporter.print();
-            Translator translator = new Translator(root);
-            translator.translate();
-            TableTree.getInstance().printTableTree();
-            TupleList.getInstance().print();
+
+            if (!reporter.hasError()) {
+                Translator translator = new Translator(root);
+                translator.translate();
+                TableTree.getInstance().printTableTree();
+                TupleList.getInstance().print();
+            }
 
             input.close();
             inputFile.close();

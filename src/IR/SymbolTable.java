@@ -8,6 +8,8 @@ public class SymbolTable {
     private final ArrayList<SymbolTable> children;
     private final HashMap<String, Template> content;
     private int depth;
+    private int id;
+    public static int cnt = 0;
 
     public SymbolTable(SymbolTable parent) {
         this.parent = parent;
@@ -18,6 +20,11 @@ public class SymbolTable {
         } else {
             this.depth = parent.getDepth() + 1;
         }
+        this.id = cnt++;
+    }
+
+    public int getId() {
+        return id;
     }
 
     public SymbolTable getParent() {
@@ -61,7 +68,7 @@ public class SymbolTable {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("Depth").append(getDepth()).append("-SymbolTable: \n");
+        sb.append("SymbolTable ").append(id).append(":\n");
         for (String key : content.keySet()) {
             sb.append(content.get(key)).append("\n");
         }

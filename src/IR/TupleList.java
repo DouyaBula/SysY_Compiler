@@ -27,7 +27,9 @@ public class TupleList {
     }
 
     private void addTuple(Operator operator, Operand operand1, Operand operand2, Operand result) {
-        tuples.add(new Tuple(operator, operand1, operand2, result));
+        Tuple tuple = new Tuple(operator, operand1, operand2, result);
+//        System.out.println(tuple);
+        tuples.add(tuple);
     }
 
     public void addLabel(String label) {
@@ -43,8 +45,8 @@ public class TupleList {
         addTuple(Operator.DEF, Operand.getDefOperand(name), null, null);
     }
 
-    public void addAssign(Operand operand1, Operand operand2) {
-        addTuple(Operator.ASSIGN, operand1, operand2, null);
+    public void addAssign(Operand result, Operand exp) {
+        addTuple(Operator.ASSIGN, exp, null, result);
     }
 
     public void addGoto(Operand label) {
@@ -124,8 +126,14 @@ public class TupleList {
         addTuple(Operator.PUSH, operand, null, null);
     }
 
+    // has return value
     public void addCall(Operand func, Operand result) {
         addTuple(Operator.CALL, func, null, result);
+    }
+
+    // no return value
+    public void addCall(Operand func) {
+        addTuple(Operator.CALL, func, null, null);
     }
 
     public void addNeg(Operand operand1, Operand result) {
@@ -136,20 +144,12 @@ public class TupleList {
         addTuple(Operator.NOT, operand1, null, result);
     }
 
-    public void addLoad(Operand base, Operand offset, Operand result) {
-        addTuple(Operator.LOAD, base, offset, result);
+    public void addLoad(Operand base, Operand offset, Operand dest) {
+        addTuple(Operator.LOAD, base, offset, dest);
     }
 
-    public void addStore(Operand base, Operand offset, Operand result) {
-        addTuple(Operator.STORE, base, offset, result);
-    }
-
-    public void addEnterBlock() {
-        addTuple(Operator.ENTERBLOCK, null, null, null);
-    }
-
-    public void addExitBlock() {
-        addTuple(Operator.EXITBLOCK, null, null, null);
+    public void addStore(Operand base, Operand offset, Operand source) {
+        addTuple(Operator.STORE, base, offset, source);
     }
 
 }
