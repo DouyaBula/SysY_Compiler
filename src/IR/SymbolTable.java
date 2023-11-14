@@ -9,6 +9,7 @@ public class SymbolTable {
     private final HashMap<String, Template> content;
     private int depth;
     private int id;
+    private int size;
     public static int cnt = 0;
 
     public SymbolTable(SymbolTable parent) {
@@ -20,7 +21,16 @@ public class SymbolTable {
         } else {
             this.depth = parent.getDepth() + 1;
         }
+        this.size = 0;
         this.id = cnt++;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public void addSize(int size) {
+        this.size += size;
     }
 
     public int getId() {
@@ -68,7 +78,7 @@ public class SymbolTable {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("SymbolTable ").append(id).append(":\n");
+        sb.append("SymbolTable ").append(id).append(" size ").append(size).append(":\n");
         for (String key : content.keySet()) {
             sb.append(content.get(key)).append("\n");
         }

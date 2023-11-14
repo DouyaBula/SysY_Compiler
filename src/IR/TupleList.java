@@ -65,6 +65,10 @@ public class TupleList {
         addTuple(Operator.RETURN, operand, null, null);
     }
 
+    public void addExit() {
+        addTuple(Operator.EXIT, null, null, null);
+    }
+
     public void addRead(Operand operand) {
         addTuple(Operator.READ, operand, null, null);
     }

@@ -4,6 +4,7 @@ import IR.Translator;
 import IR.TupleList;
 import Lexer.Lexer;
 import Lexer.Token;
+import MIPS.Generator;
 import Parser.Node;
 import Parser.Parser;
 
@@ -19,18 +20,23 @@ public class Compiler {
 
     public static void main(String[] args) {
         try {
+            // 打开输入文件
             FileReader inputFile = new FileReader(inputFilePath);
             BufferedReader input = new BufferedReader(inputFile);
             FileWriter outputFile = new FileWriter(outputFilePath);
             BufferedWriter output = new BufferedWriter(outputFile);
 
+            // 词法分析
             Reporter reporter = new Reporter(output);
             Lexer lexer = new Lexer(input, reporter);
             ArrayList<Token> tokens = lexer.analyze();
+
+            // 语法分析
             Parser parser = new Parser(tokens, reporter);
             Node root = parser.parseCompUnit();
             reporter.print();
 
+            // 语义分析与中间代码生成
             if (!reporter.hasError()) {
                 Translator translator = new Translator(root);
                 translator.translate();
@@ -38,6 +44,14 @@ public class Compiler {
                 TupleList.getInstance().print();
             }
 
+            // MIPS目标代码生成
+            if (!reporter.hasError()) {
+                Generator generator = new Generator();
+                generator.generate();
+            }
+
+
+            // 关闭文件
             input.close();
             inputFile.close();
             output.close();

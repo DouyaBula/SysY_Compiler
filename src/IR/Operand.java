@@ -11,8 +11,16 @@ public class Operand {
         this.name = name;
     }
 
+    public String getName() {
+        return name;
+    }
+
     public int getConstVal() {
         return constVal;
+    }
+
+    public boolean isConst() {
+        return type == OperandType.CONSTVAL;
     }
 
     public OperandType getType() {

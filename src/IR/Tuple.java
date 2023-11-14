@@ -32,6 +32,10 @@ public class Tuple {
         return result;
     }
 
+    public SymbolTable getBelongTable() {
+        return belongTable;
+    }
+
     @Override
     public String toString() {
         String str = "";
@@ -87,9 +91,12 @@ public class Tuple {
             case STORE:
                 str = operand1 + "[" + operand2 + "]" + " = " + result;
                 break;
+            case EXIT:
+                str = "exit program";
+                break;
             default:
                 break;
         }
-        return "#"+belongTable.getId()+" "+str;
+        return "#" + belongTable.getId() + " " + str;
     }
 }

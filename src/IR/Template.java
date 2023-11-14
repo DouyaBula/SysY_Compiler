@@ -11,6 +11,10 @@ public class Template {
     private boolean hasRet;    // 是否有返回值
     private final ArrayList<Operand> paramDimList;  // 参数维度表
 
+    private SymbolTable belongTable; // 所属符号表
+    // offset should only be used for var and param
+    private int offset; // 相对于符号表基址的偏移量
+
     public Template(String name, Operand dim1, Operand dim2, boolean isConst,
                     ArrayList<Operand> initVal) {
         this.type = isConst ? SymbolType.CONST : SymbolType.VAR;
@@ -38,7 +42,29 @@ public class Template {
         this.paramDimList = new ArrayList<>();
     }
 
+    public boolean isGlobal() {
+        return belongTable.getParent() == null;
+    }
 
+    public void setOffset(int offset) {
+        this.offset = offset;
+    }
+
+    public int getOffset() {
+        return offset;
+    }
+
+    public void setBelongTable(SymbolTable belongTable) {
+        this.belongTable = belongTable;
+    }
+
+    public SymbolTable getBelongTable() {
+        return belongTable;
+    }
+
+    public boolean is(SymbolType type) {
+        return this.type == type;
+    }
 
     public SymbolType getType() {
         return type;
@@ -83,7 +109,8 @@ public class Template {
     @Override
     public String toString() {
         return switch (type) {
-            case VAR, CONST -> String.format("%s %s [%s][%s] = %s", type, name, dim1, dim2, initVal);
+            case VAR, CONST ->
+                    String.format("%s %s [%s][%s] = %s", type, name, dim1, dim2, initVal);
             case FUNC -> String.format("%s %s (%s)", type, name, paramDimList);
             case PARAM -> String.format("%s %s [%s][%s]", type, name, dim1, dim2);
             default -> throw new IllegalStateException("Unexpected value: " + type);
