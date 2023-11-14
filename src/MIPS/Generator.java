@@ -498,7 +498,6 @@ public class Generator {
                 "subiu", "$sp", "$sp", "4"));
     }
 
-    // TODO: 有问题
     private void convertLOAD(Tuple tuple) {
         Operand base = tuple.getOperand1();
         Template template = TableTree.getInstance().getTemplate(base.getName());
