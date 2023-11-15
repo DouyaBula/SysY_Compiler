@@ -373,10 +373,11 @@ public class Generator {
     private void convertNOT(Tuple tuple) {
         Operand operand1 = tuple.getOperand1();
         Operand result = tuple.getResult();
+        String resultReg = getReg(result, false);
         mipsCode.add(generalCode(
-                "not", getReg(result, false), getReg(operand1, true)));
+                "seq", resultReg, getReg(operand1, true), "$zero"));
         mipsCode.add(generalCode(
-                "sw", getReg(result, true),
+                "sw", resultReg,
                 temp2Offset.get(result.toString()) + "($k1)"));
     }
 
