@@ -43,7 +43,8 @@ public class Template {
     }
 
     public boolean isGlobal() {
-        return belongTable.getParent() == null;
+        return belongTable.getParent() == null &&
+                (type == SymbolType.VAR || type == SymbolType.CONST);
     }
 
     public void setOffset(int offset) {

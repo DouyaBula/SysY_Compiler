@@ -18,7 +18,7 @@ public class Reporter {
         errorList.add(line + " " + error);
     }
 
-    public void print() throws IOException {
+    public void write() throws IOException {
         errorList.sort(new ListComparator());
         for (String error : errorList) {
             output.write(error+"\n");

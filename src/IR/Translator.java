@@ -4,21 +4,25 @@ import Lexer.Symbol;
 import Parser.Node;
 import Parser.Term;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Stack;
 
 public class Translator {
+    private final BufferedWriter irFile;
     // parser has already ensured the correctness of the grammar tree
     // so just translate it as the grammar rules without any error handling
     private final Node root;
-    private final Stack<Operand> loopBeginStack = new Stack<>();
+    private final Stack<Operand> loopTailStack = new Stack<>();
     private final Stack<Operand> loopEndStack = new Stack<>();
 
     // 唉, 全局变量, 我还是来了
     private boolean inMain = false;
 
-    public Translator(Node root) {
+    public Translator(Node root, BufferedWriter irFile) {
         this.root = root;
+        this.irFile = irFile;
     }
 
     public ArrayList<Tuple> translate() {
@@ -27,12 +31,6 @@ public class Translator {
         }
         translateCompUnit(root);
         return TupleList.getInstance().getTuples();
-    }
-
-    private boolean checkConst(String name) {
-        Template template = TableTree.getInstance().getTemplate(name);
-        return (template != null && template.getType() == SymbolType.CONST)
-                || TableTree.getInstance().getCurrentTable().getId() == 0;
     }
 
     private boolean checkConst(Operand operand) {
@@ -238,7 +236,7 @@ public class Translator {
         } else if (node.contains(Symbol.BREAKTK)) {
             TupleList.getInstance().addGoto(loopEndStack.peek());
         } else if (node.contains(Symbol.CONTINUETK)) {
-            TupleList.getInstance().addGoto(loopBeginStack.peek());
+            TupleList.getInstance().addGoto(loopTailStack.peek());
         } else if (node.contains(Symbol.RETURNTK)) {
             if (inMain) {
                 TupleList.getInstance().addExit();
@@ -250,7 +248,7 @@ public class Translator {
             String name = node.getChild(0).getChild(0).getToken().getRaw();
             Operand lval = Operand.getDefOperand(name);
             Operand offset = translateLVal(node.getChild(0), true);
-            if (offset.getType() == OperandType.DEF) {
+            if (!offset.isOffset()) {
                 TupleList.getInstance().addRead(lval);
             } else {
                 Operand temp = Operand.getTempOperand();
@@ -276,7 +274,7 @@ public class Translator {
                 exp = translateExp(child);
             }
         }
-        if (offset.getType() == OperandType.DEF) {
+        if (!offset.isOffset()) {
             TupleList.getInstance().addAssign(lVal, exp);
         } else {
             TupleList.getInstance().addStore(lVal, offset, exp);
@@ -284,9 +282,9 @@ public class Translator {
     }
 
     private void translateStmt_If(Node node) {
-        Operand bodyLabel = Operand.getLabelOperand();
-        Operand endLabel = Operand.getLabelOperand();
-        Operand elseLabel = Operand.getLabelOperand();
+        Operand bodyLabel = Operand.getAutoLabelOperand("IfBody");
+        Operand endLabel = Operand.getAutoLabelOperand("IfEnd");
+        Operand elseLabel = Operand.getAutoLabelOperand("IfElse");
         boolean hasElse = false;
         for (Node child : node.getChildren()) {
             if (child.is(Symbol.ELSETK)) {
@@ -310,10 +308,11 @@ public class Translator {
     }
 
     private void translateStmt_For(Node node) {
-        Operand beginLabel = Operand.getLabelOperand();
-        Operand bodyLabel = Operand.getLabelOperand();
-        Operand endLabel = Operand.getLabelOperand();
-        loopBeginStack.push(beginLabel);
+        Operand beginLabel = Operand.getAutoLabelOperand("ForBegin");
+        Operand bodyLabel = Operand.getAutoLabelOperand("ForBody");
+        Operand tailLabel = Operand.getAutoLabelOperand("ForTail");
+        Operand endLabel = Operand.getAutoLabelOperand("ForEnd");
+        loopTailStack.push(tailLabel);
         loopEndStack.push(endLabel);
         int i;
         for (i = 0; i < node.getChildren().size(); i++) {
@@ -342,6 +341,7 @@ public class Translator {
                 translateStmt(node.getChild(i));
             }
         }
+        TupleList.getInstance().addLabel(tailLabel);
         for (; j < node.getChildren().size(); j++) {
             if (node.getChild(j).is(Term.ForStmt)) {
                 translateForStmt(node.getChild(j));
@@ -349,7 +349,7 @@ public class Translator {
         }
         TupleList.getInstance().addGoto(beginLabel);
         TupleList.getInstance().addLabel(endLabel);
-        loopBeginStack.pop();
+        loopTailStack.pop();
         loopEndStack.pop();
     }
 
@@ -399,7 +399,6 @@ public class Translator {
     private Operand translateLVal(Node node, boolean isLeft) {
         Operand result = null;
         String name = null;
-        boolean isConst = false;
         int dimCnt = 0;
         Operand[] dims = {Operand.getConstOperand(0), Operand.getConstOperand(0)};
         for (Node child : node.getChildren()) {
@@ -407,45 +406,37 @@ public class Translator {
                 dims[dimCnt++] = translateExp(child);
             } else if (child.is(Symbol.IDENFR)) {
                 name = child.getToken().getRaw();
-                isConst = checkConst(name);
             }
         }
-        if (!isConst) {
-            if (dimCnt == 0) {
-                result = Operand.getDefOperand(name);
-            } else if (dimCnt == 1) {
-                result = Operand.getTempOperand();
-                Operand def = Operand.getDefOperand(name);
-                if (!isLeft) {
-                    TupleList.getInstance().addLoad(def, dims[0], result);
-                } else {
-                    return dims[0];
-                }
-            } else if (dimCnt == 2) {
-                result = Operand.getTempOperand();
-                Operand def = Operand.getDefOperand(name);
-                Operand offset = Operand.getTempOperand();
-                Operand dimSize =
-                        TableTree.getInstance().getTemplate(name).getDim2();
-                TupleList.getInstance().addMul(dims[0], dimSize, offset);
-                TupleList.getInstance().addAdd(offset, dims[1], offset);
-                if (!isLeft) {
-                    TupleList.getInstance().addLoad(def, offset, result);
-                } else {
-                    return offset;
-                }
+        // 标记返回的operand是否作为offset使用
+        dims[0].setOffset(false);
+        if (dimCnt == 0) {
+            result = Operand.getDefOperand(name);
+        } else if (dimCnt == 1) {
+            result = Operand.getTempOperand();
+            Operand def = Operand.getDefOperand(name);
+            if (!isLeft) {
+                TupleList.getInstance().addLoad(def, dims[0], result);
+            } else {
+                dims[0].setOffset(true);
+                return dims[0];
             }
-        } else {
-            Template template = TableTree.getInstance().getTemplate(name);
-            if (dimCnt == 0) {
-                result = template.getInitVal().get(0);
-            } else if (dimCnt == 1) {
-                result = template.getInitVal().get(dims[0].getConstVal());
-            } else if (dimCnt == 2) {
-                result = template.getInitVal().get(
-                        dims[0].getConstVal() * template.getDim2().getConstVal() + dims[1].getConstVal());
+        } else if (dimCnt == 2) {
+            result = Operand.getTempOperand();
+            Operand def = Operand.getDefOperand(name);
+            Operand offset = Operand.getTempOperand();
+            Operand dimSize =
+                    TableTree.getInstance().getTemplate(name).getDim2();
+            TupleList.getInstance().addMul(dims[0], dimSize, offset);
+            TupleList.getInstance().addAdd(offset, dims[1], offset);
+            if (!isLeft) {
+                TupleList.getInstance().addLoad(def, offset, result);
+            } else {
+                offset.setOffset(true);
+                return offset;
             }
         }
+        // 不可能出现dimCnt > 2的情况, 该句无法到达
         return result;
     }
 
@@ -629,7 +620,7 @@ public class Translator {
     private void translateLOrExp(Node node, Operand trueLabel, Operand falseLabel) {
         for (Node child : node.getChildren()) {
             if (child.is(Term.LAndExp)) {
-                Operand subFalseLabel = Operand.getLabelOperand();
+                Operand subFalseLabel = Operand.getAutoLabelOperand("LOrExpEnd");
                 translateLAndExp(child, subFalseLabel);
                 TupleList.getInstance().addGoto(trueLabel);
                 TupleList.getInstance().addLabel(subFalseLabel);
@@ -644,5 +635,11 @@ public class Translator {
         return translateAddExp(node.getChild(0));
     }
 
+    public void write() throws IOException {
+        TupleList tupleList = TupleList.getInstance();
+        for (Tuple tuple : tupleList.getTuples()) {
+            irFile.write(tuple.toString() + "\n");
+        }
+    }
 
 }

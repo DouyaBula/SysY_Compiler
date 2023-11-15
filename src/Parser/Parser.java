@@ -22,7 +22,7 @@ public class Parser {
     private boolean isInFuncDef;
     private int level;
     private boolean needRet;
-    private boolean isInLoopBlock;
+    private int loopCnt;
 
     public Parser(ArrayList<Token> tokens, Reporter reporter) {
         this.stepper = new Stepper(tokens);
@@ -32,7 +32,7 @@ public class Parser {
         this.isInFuncDef = false;
         this.level = 0;
         this.needRet = false;
-        this.isInLoopBlock = false;
+        this.loopCnt = 0;
     }
 
     private Attribute getSymbolAll(String name) {
@@ -620,13 +620,13 @@ public class Parser {
                 stmt.addChild(parseForstmt());
             }
             checkRparent(stmt);
-            isInLoopBlock = true;
+            loopCnt++;
             if (stepper.isStmt()) {
                 stmt.addChild(parseStmt());
             } else {
                 error();
             }
-            isInLoopBlock = false;
+            loopCnt--;
         } else if (stepper.is(Symbol.BREAKTK)) {
             stmt.addChild(new Node(stepper.peek()));
             checkLoop();
@@ -1103,8 +1103,12 @@ public class Parser {
     }
 
     private void checkLoop() {
-        if (!isInLoopBlock) {
+        if (!isInLoopBlock()) {
             reporter.report(Error.m, stepper.peek().getLine());
         }
+    }
+
+    private boolean isInLoopBlock(){
+        return loopCnt > 0;
     }
 }

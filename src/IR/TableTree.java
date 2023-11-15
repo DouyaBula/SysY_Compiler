@@ -69,6 +69,14 @@ public class TableTree {
 
     public void addConstDef(String name, Operand dim1, Operand dim2, ArrayList<Operand> initVal) {
         Template template = new Template(name, dim1, dim2, true, initVal);
+        template.setOffset(currentTable.getSize());
+        int delta = dim1.getConstVal() == 0 ? 4 :
+                (dim2.getConstVal() == 0 ? 4 * dim1.getConstVal() :
+                        4 * dim1.getConstVal() * dim2.getConstVal());
+        if (currentTable.getParent() != null) {
+            currentTable.addSize(delta);
+            size += delta;
+        }
         addSymbol(name, template);
     }
 

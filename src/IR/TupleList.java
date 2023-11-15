@@ -20,7 +20,7 @@ public class TupleList {
         return tuples;
     }
 
-    public void print() {
+    public void printTuples() {
         for (Tuple tuple : tuples) {
             System.out.println(tuple);
         }
