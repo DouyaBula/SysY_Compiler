@@ -44,16 +44,14 @@ public class Generator {
                     "li", operand2Reg.get(operand), String.valueOf(operand.getConstVal())));
         } else if (operand.getType() == OperandType.DEF) {
             Template template = TableTree.getInstance().getTemplate(operand.getName());
-            if (template.is(SymbolType.VAR) || template.is(SymbolType.CONST)) {
-                if (template.isGlobal()) {
-                    mipsCode.add(generalCode(
-                            "lw", operand2Reg.get(operand), operand.getName()));
-                } else {
-                    int offset = table2Offset.get(template.getBelongTable())
-                            + template.getOffset();
-                    mipsCode.add(generalCode(
-                            "lw", operand2Reg.get(operand), -offset + "($k0)"));
-                }
+            if (template.isGlobal()) {
+                mipsCode.add(generalCode(
+                        "lw", operand2Reg.get(operand), operand.getName()));
+            } else {
+                int offset = table2Offset.get(template.getBelongTable())
+                        + template.getOffset();
+                mipsCode.add(generalCode(
+                        "lw", operand2Reg.get(operand), -offset + "($k0)"));
             }
         } else if (operand.getType() == OperandType.TEMP) {
             if (!temp2Offset.containsKey(operand.toString())) {
@@ -153,6 +151,10 @@ public class Generator {
                 "subiu", "$sp", "$sp", String.valueOf(4 * TEMPSIZE)));
         mipsCode.add(generalCode(
                 "move", "$k1", "$sp"));
+        // 跳转到main函数
+        mipsCode.add(generalCode(
+                "j", "main_BEGIN"));
+
         mipsCode.add("");
     }
 
@@ -315,6 +317,9 @@ public class Generator {
             case LOAD:
                 convertLOAD(tuple);
                 break;
+            case LOADADDR:
+                convertLOADADDR(tuple);
+                break;
             case STORE:
                 convertSTORE(tuple);
                 break;
@@ -340,13 +345,8 @@ public class Generator {
             ArrayList<Operand> initVal = template.getInitVal();
             for (int i = 0; i < initVal.size(); i++) {
                 Operand operand = initVal.get(i);
-                if (operand.getType() == OperandType.CONSTVAL) {
-                    mipsCode.add(generalCode(
-                            "li", "$t0", String.valueOf(operand.getConstVal())));
-                } else {
-                    mipsCode.add(generalCode(
-                            "lw", "$t0", temp2Offset.get(operand.toString()) + "($k1)"));
-                }
+                mipsCode.add(generalCode(
+                        "move", "$t0", getReg(operand, true)));
                 int offset = table2Offset.get(template.getBelongTable())
                         + template.getOffset() + i * 4;
                 mipsCode.add(generalCode(
@@ -460,23 +460,59 @@ public class Generator {
     // function call
     private void convertCALL(Tuple tuple) {
         // TODO: 栈中参数转移到内存对应的位置
-
+        // 弹出参数
+        String funcName = tuple.getOperand1().toString();
+        Template funcTemplate = TableTree.getInstance().getTemplate(funcName);
+        ArrayList<Operand> paramList = funcTemplate.getParamList();
+        for (int i = paramList.size() - 1; i >= 0; i--) {
+            Operand param = paramList.get(i);
+            Template paramTemplate = TableTree.getInstance().getTemplate(param.getName(),
+                    funcTemplate.getBodyId());
+            int offset = table2Offset.get(paramTemplate.getBelongTable())
+                    + paramTemplate.getOffset();
+            mipsCode.add(generalCode(
+                    "lw", "$s0", "0($sp)"));
+            mipsCode.add(generalCode(
+                    "sw", "$s0", -offset + "($k0)"));
+            mipsCode.add(generalCode(
+                    "addiu", "$sp", "$sp", "4"));
+        }
         saveRegs();
         // call
         mipsCode.add(generalCode(
-                "jal", tuple.getOperand1().toString()));
+                "jal", tuple.getOperand1().toString() + "_BEGIN"));
         if (tuple.getResult() != null) {
             // return value
+            String resultReg = getReg(tuple.getResult(), false);
             mipsCode.add(generalCode(
-                    "move", getReg(tuple.getResult(), false), "$v0"));
+                    "move", resultReg, "$v0"));
+            if (tuple.getResult().getType() == OperandType.TEMP) {
+                mipsCode.add(generalCode(
+                        "sw", resultReg,
+                        temp2Offset.get(tuple.getResult().toString()) + "($k1)"));
+            } else if (tuple.getResult().getType() == OperandType.DEF) {
+                Template template =
+                        TableTree.getInstance().getTemplate(tuple.getResult().getName());
+                if (template.isGlobal()) {
+                    mipsCode.add(generalCode(
+                            "sw", resultReg, tuple.getResult().getName() + "($zero)"));
+                } else {
+                    int offset = table2Offset.get(template.getBelongTable())
+                            + template.getOffset();
+                    mipsCode.add(generalCode(
+                            "sw", resultReg, -offset + "($k0)"));
+                }
+            } else {
+                System.out.println(">> ERROR: when convertCALL, should not be here");
+            }
         }
+        restoreRegs();
     }
 
     private void convertRETURN(Tuple tuple) {
         Operand operand1 = tuple.getOperand1();
         mipsCode.add(generalCode(
                 "move", "$v0", getReg(operand1, true)));
-        restoreRegs();
         // return
         mipsCode.add(generalCode(
                 "jr", "$ra"));
@@ -506,12 +542,12 @@ public class Generator {
                 "beq", getReg(operand1, true), "$zero", operand2.toString()));
     }
 
+    // TODO: PUSH PARAM
     private void convertPUSH(Tuple tuple) {
-        Operand operand1 = tuple.getOperand1();
-        mipsCode.add(generalCode(
-                "sw", getReg(operand1, true), "-4($sp)"));
-        mipsCode.add(generalCode(
-                "subiu", "$sp", "$sp", "4"));
+        Operand param = tuple.getOperand1();
+        // store to stack
+        mipsCode.add(generalCode("sw", getReg(param, true), "-4($sp)"));
+        mipsCode.add(generalCode("subiu", "$sp", "$sp", "4"));
     }
 
     private void convertLOAD(Tuple tuple) {
@@ -535,12 +571,18 @@ public class Generator {
             }
         } else {
             if (offset.getType() == OperandType.CONSTVAL) {
-                int offset1 = table2Offset.get(template.getBelongTable())
-                        + template.getOffset();
-                mipsCode.add(generalCode(
-                        "lw", destReg,
-                        (-offset1 - offset.getConstVal() * 4) + "($k0)"));
-            } else {
+                if (!template.is(SymbolType.PARAM)) {
+                    int offset1 = table2Offset.get(template.getBelongTable())
+                            + template.getOffset();
+                    mipsCode.add(generalCode(
+                            "lw", destReg,
+                            (-offset1 - offset.getConstVal() * 4) + "($k0)"));
+                } else {
+                    mipsCode.add(generalCode(
+                            "lw", destReg,
+                            (-offset.getConstVal() * 4) + "(" + getReg(base, true) + ")"));
+                }
+            } else if (!template.is(SymbolType.PARAM)) {
                 String offsetReg = getReg(offset, true);
                 int baseOffset = table2Offset.get(template.getBelongTable())
                         + template.getOffset();
@@ -553,6 +595,27 @@ public class Generator {
                 mipsCode.add(generalCode(
                         "lw", destReg,
                         "(" + offsetReg + ")"));
+            } else { // TODO: param array
+                String baseReg = getReg(base, true);
+                String offsetReg = getReg(offset, true);
+                int dimcnt = 2;
+                if (template.getDim2().getConstVal() == 0) {
+                    dimcnt--;
+                    if (template.getDim1().getConstVal() == 0) {
+                        dimcnt--;
+                    }
+                }
+                if (dimcnt > 0) {
+                    mipsCode.add(generalCode(
+                            "sll", offsetReg, offsetReg, "2"));
+                    mipsCode.add(generalCode(
+                            "subu", offsetReg, baseReg, offsetReg));
+                    mipsCode.add(generalCode(
+                            "lw", destReg,
+                            "(" + offsetReg + ")"));
+                } else {
+                    System.out.println(">> ERROR: when dimcnt = 0, should not be here");
+                }
             }
         }
         mipsCode.add(generalCode(
@@ -560,6 +623,81 @@ public class Generator {
                 temp2Offset.get(dest.toString()) + "($k1)"));
     }
 
+    // TODO: FINISH LOADADDR
+    // TODO: 检查函数内再次传递数组参数的情况
+    // TODO: 检查一大坨的if else能不能提取成函数
+    private void convertLOADADDR(Tuple tuple) {
+        Operand base = tuple.getOperand1();
+        Template template = TableTree.getInstance().getTemplate(base.getName());
+        int dimCnt = template.getDimCnt();
+        if (dimCnt == 0) {
+            System.out.println(">> ERROR: when dimcnt = 0, should not be here");
+        }
+        Operand offset = tuple.getOperand2();
+        Operand dest = tuple.getResult();
+        String destReg = getReg(dest, false);
+        if (template.isGlobal()) {
+            if (offset != null &&
+                    offset.getType() == OperandType.CONSTVAL) {
+                int offsetVal = dimCnt == 1 ? offset.getConstVal() * 4 :
+                        offset.getConstVal() * 4 * template.getDim2().getConstVal();
+                mipsCode.add(generalCode(
+                        "la", destReg,
+                        base.getName() + "+" + offsetVal));
+            } else if (offset != null) {
+                String offsetReg = getReg(offset, true);
+                mipsCode.add(generalCode(
+                        "sll", offsetReg, offsetReg, "2"));
+                if (dimCnt == 2) {
+                    int dim2Val = template.getDim2().getConstVal();
+                    mipsCode.add(generalCode(
+                            "mul", offsetReg, offsetReg, String.valueOf(dim2Val)));
+                }
+                mipsCode.add(generalCode(
+                        "la", destReg, base.getName() + "(" + offsetReg + ")"));
+            } else { // offset == null
+                mipsCode.add(generalCode(
+                        "la", destReg, base.getName()));
+            }
+        } else {
+            if (offset != null &&
+                    offset.getType() == OperandType.CONSTVAL) {
+                int offset1 = table2Offset.get(template.getBelongTable())
+                        + template.getOffset();
+                offset1 = dimCnt == 1 ? offset1 + offset.getConstVal() * 4 :
+                        offset1 + offset.getConstVal() * 4 * template.getDim2().getConstVal();
+                mipsCode.add(generalCode(
+                        "la", destReg, (-offset1) + "($k0)"));
+            } else if (offset != null) {
+                String offsetReg = getReg(offset, true);
+                int baseOffset = table2Offset.get(template.getBelongTable())
+                        + template.getOffset();
+                mipsCode.add(generalCode(
+                        "sll", offsetReg, offsetReg, "2"));
+                if (dimCnt == 2) {
+                    int dim2Val = template.getDim2().getConstVal();
+                    mipsCode.add(generalCode(
+                            "mul", offsetReg, offsetReg, String.valueOf(dim2Val)));
+                }
+                mipsCode.add(generalCode(
+                        "addu", offsetReg, offsetReg, String.valueOf(baseOffset)));
+                mipsCode.add(generalCode(
+                        "subu", offsetReg, "$k0", offsetReg));
+                mipsCode.add(generalCode(
+                        "la", destReg, "(" + offsetReg + ")"));
+            } else { // offset == null
+                int offset1 = table2Offset.get(template.getBelongTable())
+                        + template.getOffset();
+                mipsCode.add(generalCode(
+                        "la", destReg, (-offset1) + "($k0)"));
+            }
+        }
+        mipsCode.add(generalCode(
+                "sw", destReg,
+                temp2Offset.get(dest.toString()) + "($k1)"));
+    }
+
+    // TODO: STORE PARAM ARRAY
     private void convertSTORE(Tuple tuple) {
         Operand base = tuple.getOperand1();
         Template template = TableTree.getInstance().getTemplate(base.getName());
@@ -579,7 +717,7 @@ public class Generator {
                         "sw", srcReg,
                         base.getName() + "(" + offsetReg + ")"));
             }
-        } else {
+        } else if (!template.is(SymbolType.PARAM)) {
             if (offset.getType() == OperandType.CONSTVAL) {
                 int offset1 = table2Offset.get(template.getBelongTable())
                         + template.getOffset();
@@ -599,6 +737,27 @@ public class Generator {
                 mipsCode.add(generalCode(
                         "sw", srcReg,
                         "(" + offsetReg + ")"));
+            }
+        } else { // TODO: param array
+            String baseReg = getReg(base, true);
+            String offsetReg = getReg(offset, true);
+            int dimcnt = 2;
+            if (template.getDim2().getConstVal() == 0) {
+                dimcnt--;
+                if (template.getDim1().getConstVal() == 0) {
+                    dimcnt--;
+                }
+            }
+            if (dimcnt > 0) {
+                mipsCode.add(generalCode(
+                        "sll", offsetReg, offsetReg, "2"));
+                mipsCode.add(generalCode(
+                        "subu", offsetReg, baseReg, offsetReg));
+                mipsCode.add(generalCode(
+                        "sw", srcReg,
+                        "(" + offsetReg + ")"));
+            } else {
+                System.out.println(">> ERROR: when dimcnt = 0, should not be here");
             }
         }
     }

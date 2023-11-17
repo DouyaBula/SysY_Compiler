@@ -45,6 +45,18 @@ public class TableTree {
         return null;
     }
 
+    public Template getTemplate(String name, int tableId) {
+        SymbolTable table = id2Table.get(tableId);
+        while (table != null) {
+            Template template = table.getTemplate(name);
+            if (template != null) {
+                return template;
+            }
+            table = table.getParent();
+        }
+        return null;
+    }
+
     public SymbolTable getCurrentTable() {
         return currentTable;
     }
@@ -100,18 +112,16 @@ public class TableTree {
 
     public void addFuncDefToParent(String name, boolean hasRet, ArrayList<Operand> params) {
         Template template = new Template(name, hasRet, params);
+        template.setBodyId(currentTable.getId());
         currentTable.getParent().addSymbol(name, template);
     }
 
     public void addFuncParam(String name, Operand dim1, Operand dim2) {
         Template template = new Template(name, dim1, dim2);
         template.setOffset(currentTable.getSize());
-        int delta = dim1.getConstVal() == 0 ? 4 :
-                (dim2.getConstVal() == 0 ? 4 * dim1.getConstVal() :
-                        4 * dim1.getConstVal() * dim2.getConstVal());
         if (currentTable.getParent() != null) {
-            currentTable.addSize(delta);
-            size += delta;
+            currentTable.addSize(4);
+            size += 4;
         }
         addSymbol(name, template);
     }

@@ -57,8 +57,10 @@ public class Tuple {
             case RETURN:
             case READ:
             case PRINT:
-            case PUSH:
                 str = operator + " " + operand1;
+                break;
+            case PUSH:
+                str = operator + " " + operand1 + " to table#" + result.getConstVal();
                 break;
             case CALL:
                 if (result != null) {
@@ -87,6 +89,10 @@ public class Tuple {
                 break;
             case LOAD:
                 str = result + " = " + operand1 + "[" + operand2 + "]";
+                break;
+            case LOADADDR:
+                str = result + " = &" + operand1 +
+                        (operand2 == null ? "" : "[" + operand2 + "]");
                 break;
             case STORE:
                 str = operand1 + "[" + operand2 + "]" + " = " + result;

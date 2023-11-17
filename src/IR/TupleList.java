@@ -126,8 +126,8 @@ public class TupleList {
         addTuple(Operator.MOD, operand1, operand2, result);
     }
 
-    public void addPush(Operand operand){
-        addTuple(Operator.PUSH, operand, null, null);
+    public void addPush(Operand param, Operand targetTable) {
+        addTuple(Operator.PUSH, param, null, targetTable);
     }
 
     // has return value
@@ -150,6 +150,10 @@ public class TupleList {
 
     public void addLoad(Operand base, Operand offset, Operand dest) {
         addTuple(Operator.LOAD, base, offset, dest);
+    }
+
+    public void addLoadAddr(Operand base, Operand offset, Operand dest) {
+        addTuple(Operator.LOADADDR, base, offset, dest);
     }
 
     public void addStore(Operand base, Operand offset, Operand source) {

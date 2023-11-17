@@ -140,7 +140,7 @@ public class Translator {
     private void translateFuncDef(Node node) {
         String name = "firetruck";
         boolean hasRet = false;
-        ArrayList<Operand> paramDimList = new ArrayList<>();
+        ArrayList<Operand> paramList = new ArrayList<>();
         for (Node child : node.getChildren()) {
             if (child.is(Term.FuncType)) {
                 hasRet = child.getChild(0).is(Symbol.INTTK);
@@ -149,9 +149,9 @@ public class Translator {
                 TupleList.getInstance().addLabel(name + "_BEGIN");
                 TableTree.getInstance().enterBlock();
             } else if (child.is(Term.FuncFParams)) {
-                paramDimList = translateFuncFParams(child);
+                paramList = translateFuncFParams(child);
             } else if (child.is(Term.Block)) {
-                TableTree.getInstance().addFuncDefToParent(name, hasRet, paramDimList);
+                TableTree.getInstance().addFuncDefToParent(name, hasRet, paramList);
                 translateBlock(child);
                 TableTree.getInstance().exitBlock();
             }
@@ -176,13 +176,13 @@ public class Translator {
     }
 
     private ArrayList<Operand> translateFuncFParams(Node node) {
-        ArrayList<Operand> paramDimList = new ArrayList<>();
+        ArrayList<Operand> paramList = new ArrayList<>();
         for (Node child : node.getChildren()) {
             if (child.is(Term.FuncFParam)) {
-                paramDimList.add(translateFuncFParam(child));
+                paramList.add(translateFuncFParam(child));
             }
         }
-        return paramDimList;
+        return paramList;
     }
 
     private Operand translateFuncFParam(Node node) {
@@ -197,6 +197,10 @@ public class Translator {
             } else if (child.is(Term.ConstExp)) {
                 dims[1] = translateConstExp(child);
             }
+        }
+        // 数组形参的第一个维度总是为空, 这里用114514来标识
+        if (dimCnt > 0) {
+            dims[0] = Operand.getConstOperand(114514);
         }
         TableTree.getInstance().addFuncParam(name, dims[0], dims[1]);
         return Operand.getDefOperand(name);
@@ -399,6 +403,7 @@ public class Translator {
     private Operand translateLVal(Node node, boolean isLeft) {
         Operand result = null;
         String name = null;
+        int realDimCnt = 0;
         int dimCnt = 0;
         Operand[] dims = {Operand.getConstOperand(0), Operand.getConstOperand(0)};
         for (Node child : node.getChildren()) {
@@ -406,17 +411,36 @@ public class Translator {
                 dims[dimCnt++] = translateExp(child);
             } else if (child.is(Symbol.IDENFR)) {
                 name = child.getToken().getRaw();
+                Template template = TableTree.getInstance().getTemplate(name);
+                if (template != null) {
+                    realDimCnt = template.getDimCnt();
+                }
             }
         }
         // 标记返回的operand是否作为offset使用
         dims[0].setOffset(false);
         if (dimCnt == 0) {
-            result = Operand.getDefOperand(name);
+            // 检测是否与数组维数相同
+            if (dimCnt == realDimCnt) {
+                // 加载值
+                result = Operand.getDefOperand(name);
+            } else {
+                // 加载地址
+                result = Operand.getTempOperand();
+                TupleList.getInstance().addLoadAddr(Operand.getDefOperand(name), null, result);
+            }
         } else if (dimCnt == 1) {
             result = Operand.getTempOperand();
             Operand def = Operand.getDefOperand(name);
             if (!isLeft) {
-                TupleList.getInstance().addLoad(def, dims[0], result);
+                // 检测是否与数组维数相同
+                if (dimCnt == realDimCnt) {
+                    // 加载值
+                    TupleList.getInstance().addLoad(def, dims[0], result);
+                } else {
+                    // 加载地址
+                    TupleList.getInstance().addLoadAddr(def, dims[0], result);
+                }
             } else {
                 dims[0].setOffset(true);
                 return dims[0];
@@ -462,14 +486,15 @@ public class Translator {
         if (node.contains(Term.PrimaryExp)) {
             result = translatePrimaryExp(node.getChild(0));
         } else if (node.contains(Symbol.IDENFR)) {
-            boolean hasRet = TableTree.getInstance().getTemplate(
-                    node.getChild(0).getToken().getRaw()).hasRet();
+            Template func = TableTree.getInstance().getTemplate(
+                    node.getChild(0).getToken().getRaw());
+            boolean hasRet = func != null && func.hasRet();
             if (hasRet) {
                 result = Operand.getTempOperand();
             }
             String name = node.getChild(0).getToken().getRaw();
             if (node.getChild(2).is(Term.FuncRParams)) {
-                translateFuncRParams(node.getChild(2));
+                translateFuncRParams(node.getChild(2), func);
             }
             Operand def = Operand.getDefOperand(name);
             if (hasRet) {
@@ -499,11 +524,12 @@ public class Translator {
         return result;
     }
 
-    private void translateFuncRParams(Node node) {
+    private void translateFuncRParams(Node node, Template func) {
         for (Node child : node.getChildren()) {
             if (child.is(Term.Exp)) {
                 Operand param = translateExp(child);
-                TupleList.getInstance().addPush(param);
+                TupleList.getInstance().addPush(param,
+                        Operand.getConstOperand(func.getBodyId()));
             }
         }
     }

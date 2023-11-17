@@ -40,6 +40,7 @@ public enum Operator {
     JUMPFALSE,  // jumpfalse
     PUSH,   // push
     LOAD,   // load
+    LOADADDR,   // loadaddr
     STORE,  // store
 
 
@@ -78,6 +79,7 @@ public enum Operator {
         put(JUMPFALSE, "JUMPFALSE");
         put(PUSH, "PUSH");
         put(LOAD, "LOAD");
+        put(LOADADDR, "LOADADDR");
         put(READ, "READ");
         put(PRINT, "PRINT");
         put(EXIT, "EXIT");
