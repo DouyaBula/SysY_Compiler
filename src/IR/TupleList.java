@@ -65,6 +65,14 @@ public class TupleList {
         addTuple(Operator.RETURN, operand, null, null);
     }
 
+    public void addPushAR() {
+        addTuple(Operator.PUSHAR, null, null, null);
+    }
+
+    public void addPopAR() {
+        addTuple(Operator.POPAR, null, null, null);
+    }
+
     public void addExit() {
         addTuple(Operator.EXIT, null, null, null);
     }

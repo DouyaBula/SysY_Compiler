@@ -15,22 +15,24 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 // 不考虑代码优化, 不考虑寄存器分配, 只使用内存
-public class Generator {
+public class ObsoleteGenerator {
     private final BufferedWriter output;
     private final ArrayList<String> mipsCode;
     private final HashMap<SymbolTable, Integer> table2Offset;
     private final HashMap<String, Integer> temp2Offset;
+    private final HashMap<String, String> tempReg2Temp;
     private int tableMaxOffset;
     private final HashMap<Operand, String> operand2Reg;
     private int loop;
     private static final int TEMPSIZE = 4096;
 
 
-    public Generator(BufferedWriter output) {
+    public ObsoleteGenerator(BufferedWriter output) {
         this.output = output;
         mipsCode = new ArrayList<>();
         table2Offset = new HashMap<>();
         temp2Offset = new HashMap<>();
+        tempReg2Temp = new HashMap<>();
         operand2Reg = new HashMap<>();
         loop = 1;
         tableMaxOffset = 0;
@@ -38,6 +40,7 @@ public class Generator {
 
     private String getReg(Operand operand, boolean isRVal) {
         operand2Reg.put(operand, "$t" + loop);
+        tempReg2Temp.put("$t" + loop, operand.toString());
         loop = loop + 1 > 4 ? 1 : loop + 1;
         if (operand.getType() == OperandType.CONSTVAL) {
             mipsCode.add(generalCode(
@@ -197,7 +200,7 @@ public class Generator {
         for (Tuple tuple : TupleList.getInstance().getTuples()) {
             TableTree.getInstance().setCurrentTable(tuple.getBelongTable());
             // 加入原始四元式以便阅读
-            mipsCode.add(tuple.toString());
+            mipsCode.add("# " + tuple);
             convert(tuple);
             // 加入空行以便阅读
             mipsCode.add("");
@@ -662,16 +665,22 @@ public class Generator {
         } else {
             if (offset != null &&
                     offset.getType() == OperandType.CONSTVAL) {
-                int offset1 = table2Offset.get(template.getBelongTable())
-                        + template.getOffset();
-                offset1 = dimCnt == 1 ? offset1 + offset.getConstVal() * 4 :
-                        offset1 + offset.getConstVal() * 4 * template.getDim2().getConstVal();
-                mipsCode.add(generalCode(
-                        "la", destReg, (-offset1) + "($k0)"));
+                if (!template.is(SymbolType.PARAM)) {
+                    int offset1 = table2Offset.get(template.getBelongTable())
+                            + template.getOffset();
+                    offset1 = dimCnt == 1 ? offset1 + offset.getConstVal() * 4 :
+                            offset1 + offset.getConstVal() * 4 * template.getDim2().getConstVal();
+                    mipsCode.add(generalCode(
+                            "la", destReg, (-offset1) + "($k0)"));
+                } else {
+                    int offset1 = dimCnt == 1 ? offset.getConstVal() * 4 :
+                            offset.getConstVal() * 4 * template.getDim2().getConstVal();
+                    mipsCode.add(generalCode(
+                            "la", destReg,
+                            (-offset1) + "(" + getReg(base, true) + ")"));
+                }
             } else if (offset != null) {
                 String offsetReg = getReg(offset, true);
-                int baseOffset = table2Offset.get(template.getBelongTable())
-                        + template.getOffset();
                 mipsCode.add(generalCode(
                         "sll", offsetReg, offsetReg, "2"));
                 if (dimCnt == 2) {
@@ -679,17 +688,30 @@ public class Generator {
                     mipsCode.add(generalCode(
                             "mul", offsetReg, offsetReg, String.valueOf(dim2Val)));
                 }
-                mipsCode.add(generalCode(
-                        "addu", offsetReg, offsetReg, String.valueOf(baseOffset)));
+                if (!template.is(SymbolType.PARAM)) {
+                    int baseOffset = table2Offset.get(template.getBelongTable())
+                            + template.getOffset();
+                    mipsCode.add(generalCode(
+                            "addu", offsetReg, offsetReg, String.valueOf(baseOffset)));
+                } else {
+                    mipsCode.add(generalCode(
+                            "addu", offsetReg, offsetReg, getReg(base, true)));
+                }
                 mipsCode.add(generalCode(
                         "subu", offsetReg, "$k0", offsetReg));
                 mipsCode.add(generalCode(
                         "la", destReg, "(" + offsetReg + ")"));
             } else { // offset == null
-                int offset1 = table2Offset.get(template.getBelongTable())
-                        + template.getOffset();
-                mipsCode.add(generalCode(
-                        "la", destReg, (-offset1) + "($k0)"));
+                if (!template.is(SymbolType.PARAM)) {
+                    int offset1 = table2Offset.get(template.getBelongTable())
+                            + template.getOffset();
+                    mipsCode.add(generalCode(
+                            "la", destReg, (-offset1) + "($k0)"));
+                } else {
+                    mipsCode.add(generalCode(
+                            "la", destReg,
+                            "(" + getReg(base, true) + ")"));
+                }
             }
         }
         mipsCode.add(generalCode(

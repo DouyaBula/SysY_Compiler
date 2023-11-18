@@ -48,7 +48,9 @@ public enum Operator {
     READ,   // read
     PRINT,  // print
 
-    // EXIT
+    // SPECIAL
+    PUSHAR,  // push active record
+    POPAR,   // pop active record
     EXIT,  // exit
     ;
 
@@ -82,6 +84,8 @@ public enum Operator {
         put(LOADADDR, "LOADADDR");
         put(READ, "READ");
         put(PRINT, "PRINT");
+        put(PUSHAR, "PUSHAR");
+        put(POPAR, "POPAR");
         put(EXIT, "EXIT");
     }};
 

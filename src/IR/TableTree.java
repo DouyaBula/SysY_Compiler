@@ -1,5 +1,7 @@
 package IR;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -11,6 +13,7 @@ public class TableTree {
     private int stringCnt = 0;
     private HashMap<Integer, SymbolTable> id2Table;
     private int size;
+    private BufferedWriter tableFile;
 
     public static TableTree getInstance() {
         if (tableTree == null) {
@@ -120,6 +123,7 @@ public class TableTree {
         Template template = new Template(name, dim1, dim2);
         template.setOffset(currentTable.getSize());
         if (currentTable.getParent() != null) {
+            // 参数一定占 4 字节
             currentTable.addSize(4);
             size += 4;
         }
@@ -137,13 +141,13 @@ public class TableTree {
         currentTable = currentTable.getParent();
     }
 
-    public void printTableTree() {
-        System.out.println("Table Max Offset: " + size);
-        System.out.println("String Pool:");
+    public void printTableTree(BufferedWriter tableFile) throws IOException {
+        tableFile.write("Table Max Offset: " + size + "\n");
+        tableFile.write("String Pool:\n");
         for (int i = 0; i < stringCnt; i++) {
-            System.out.println("#str" + i + ": " + stringPool.get(i));
+            tableFile.write("#str" + i + ": " + stringPool.get(i) + "\n");
         }
-        System.out.println();
-        rootTable.bfsPrint();
+        tableFile.write("\n");
+        rootTable.bfsPrint(tableFile);
     }
 }

@@ -3,7 +3,7 @@ import IR.TableTree;
 import IR.Translator;
 import Lexer.Lexer;
 import Lexer.Token;
-import MIPS.Generator;
+import MIPS.RobustGenerator;
 import Parser.Node;
 import Parser.Parser;
 
@@ -16,16 +16,19 @@ import java.util.ArrayList;
 public class Compiler {
     public static final String inputFilePath = "testfile.txt";
     public static final String errorFilePath = "error.txt";
+    public static final String tableFilePath = "table.txt";
     public static final String irFilePath = "ir.txt";
     public static final String mipsFilePath = "mips.txt";
 
     public static void main(String[] args) {
         try {
-            // 打开输入文件
+            // 打开IO
             FileReader inputFile = new FileReader(inputFilePath);
             BufferedReader input = new BufferedReader(inputFile);
             FileWriter errorFile = new FileWriter(errorFilePath);
             BufferedWriter error = new BufferedWriter(errorFile);
+            FileWriter tableFile = new FileWriter(tableFilePath);
+            BufferedWriter table = new BufferedWriter(tableFile);
             FileWriter irFile = new FileWriter(irFilePath);
             BufferedWriter ir = new BufferedWriter(irFile);
             FileWriter mipsFile = new FileWriter(mipsFilePath);
@@ -45,13 +48,14 @@ public class Compiler {
             if (!reporter.hasError()) {
                 Translator translator = new Translator(root, ir);
                 translator.translate();
-                TableTree.getInstance().printTableTree();
+                TableTree.getInstance().printTableTree(table);
                 translator.write();
             }
 
             // MIPS目标代码生成
             if (!reporter.hasError()) {
-                Generator generator = new Generator(mips);
+//                ObsoleteGenerator generator = new ObsoleteGenerator(mips);
+                RobustGenerator generator = new RobustGenerator(mips);
                 generator.generate();
                 generator.write();
             }
@@ -62,6 +66,8 @@ public class Compiler {
             inputFile.close();
             error.close();
             errorFile.close();
+            table.close();
+            tableFile.close();
             ir.close();
             irFile.close();
             mips.close();

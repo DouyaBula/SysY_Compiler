@@ -52,7 +52,7 @@ public class Operand {
     }
 
     public static Operand getTempOperand() {
-        return new Operand(OperandType.TEMP, -1, "t" + tempCnt++);
+        return new Operand(OperandType.TEMP, -1, "$t" + tempCnt++);
     }
 
     public static Operand getLabelOperand(String label) {

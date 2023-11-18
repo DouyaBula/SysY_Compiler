@@ -52,11 +52,7 @@ public class Tuple {
             case JUMPFALSE:
                 str = "ifFalse " + operand1 + " goto " + operand2;
                 break;
-            case DEF:
-            case GOTO:
-            case RETURN:
-            case READ:
-            case PRINT:
+            case DEF, GOTO, RETURN, READ, PRINT:
                 str = operator + " " + operand1;
                 break;
             case PUSH:
@@ -69,22 +65,10 @@ public class Tuple {
                     str = operand1 + "()";
                 }
                 break;
-            case EQ:
-            case NEQ:
-            case LT:
-            case GT:
-            case LEQ:
-            case GEQ:
-            case ADD:
-            case SUB:
-            case MUL:
-            case DIV:
-            case MOD:
+            case EQ, NEQ, LT, GT, LEQ, GEQ, ADD, SUB, MUL, DIV, MOD:
                 str = result + " = " + operand1 + " " + operator + " " + operand2;
                 break;
-            case NEG:
-            case NOT:
-            case POS:
+            case NEG, NOT, POS:
                 str = result + " = " + operator + " " + operand1;
                 break;
             case LOAD:
@@ -100,9 +84,15 @@ public class Tuple {
             case EXIT:
                 str = "exit program";
                 break;
+            case PUSHAR:
+                str = "push AR";
+                break;
+            case POPAR:
+                str = "pop AR";
+                break;
             default:
                 break;
         }
-        return "#" + belongTable.getId() + " " + str;
+        return str;
     }
 }

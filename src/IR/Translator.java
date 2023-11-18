@@ -207,11 +207,13 @@ public class Translator {
     }
 
     private void translateBlock(Node node) {
+        TupleList.getInstance().addPushAR();
         for (Node child : node.getChildren()) {
             if (child.is(Term.BlockItem)) {
                 translateBlockItem(child);
             }
         }
+        TupleList.getInstance().addPopAR();
     }
 
     private void translateBlockItem(Node node) {

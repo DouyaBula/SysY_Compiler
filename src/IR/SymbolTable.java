@@ -1,5 +1,7 @@
 package IR;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -65,12 +67,12 @@ public class SymbolTable {
         return content.get(name);
     }
 
-    public void bfsPrint() {
+    public void bfsPrint(BufferedWriter tableFile) throws IOException {
         ArrayList<SymbolTable> queue = new ArrayList<>();
         queue.add(this);
         while (!queue.isEmpty()) {
             SymbolTable table = queue.remove(0);
-            System.out.println(table);
+            tableFile.write(table.toString()+"\n");
             queue.addAll(table.getChildren());
         }
     }
@@ -80,7 +82,8 @@ public class SymbolTable {
         StringBuilder sb = new StringBuilder();
         sb.append("SymbolTable ").append(id).append(" size ").append(size).append(":\n");
         for (String key : content.keySet()) {
-            sb.append(content.get(key)).append("\n");
+            sb.append(content.get(key)).append(" offset ")
+                    .append(content.get(key).getOffset()+4).append("\n");
         }
         return sb.toString();
     }
