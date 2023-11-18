@@ -146,17 +146,21 @@ public class Translator {
                 hasRet = child.getChild(0).is(Symbol.INTTK);
             } else if (child.is(Symbol.IDENFR)) {
                 name = child.getToken().getRaw();
-                TupleList.getInstance().addLabel(name + "_BEGIN");
                 TableTree.getInstance().enterBlock();
+                TupleList.getInstance().addLabel(name + "_BEGIN");
+                TupleList.getInstance().addPushAR();
             } else if (child.is(Term.FuncFParams)) {
                 paramList = translateFuncFParams(child);
             } else if (child.is(Term.Block)) {
                 TableTree.getInstance().addFuncDefToParent(name, hasRet, paramList);
                 translateBlock(child);
+                TupleList.getInstance().addLabel(name + "_END");
+                if (!hasRet) {
+                    TupleList.getInstance().addPopAR();
+                }
                 TableTree.getInstance().exitBlock();
             }
         }
-        TupleList.getInstance().addLabel(name + "_END");
     }
 
     private void translateMainFuncDef(Node node) {
@@ -166,6 +170,7 @@ public class Translator {
                 TableTree.getInstance().addFuncDef(name, false, new ArrayList<>());
                 TableTree.getInstance().enterBlock();
                 TupleList.getInstance().addLabel(name + "_BEGIN");
+                TupleList.getInstance().addPushAR();
                 inMain = true;
                 translateBlock(child);
                 TupleList.getInstance().addLabel(name + "_END");
@@ -207,13 +212,11 @@ public class Translator {
     }
 
     private void translateBlock(Node node) {
-        TupleList.getInstance().addPushAR();
         for (Node child : node.getChildren()) {
             if (child.is(Term.BlockItem)) {
                 translateBlockItem(child);
             }
         }
-        TupleList.getInstance().addPopAR();
     }
 
     private void translateBlockItem(Node node) {
@@ -400,6 +403,7 @@ public class Translator {
     private void translateCond(Node node, Operand trueLabel, Operand falseLabel) {
         Node lOrExp = node.getChild(0);
         translateLOrExp(lOrExp, trueLabel, falseLabel);
+        TupleList.getInstance().addGoto(falseLabel);
     }
 
     private Operand translateLVal(Node node, boolean isLeft) {
@@ -648,7 +652,7 @@ public class Translator {
     private void translateLOrExp(Node node, Operand trueLabel, Operand falseLabel) {
         for (Node child : node.getChildren()) {
             if (child.is(Term.LAndExp)) {
-                Operand subFalseLabel = Operand.getAutoLabelOperand("LOrExpEnd");
+                Operand subFalseLabel = Operand.getAutoLabelOperand("LAndExpEnd");
                 translateLAndExp(child, subFalseLabel);
                 TupleList.getInstance().addGoto(trueLabel);
                 TupleList.getInstance().addLabel(subFalseLabel);
@@ -656,7 +660,6 @@ public class Translator {
                 translateLOrExp(child, trueLabel, falseLabel);
             }
         }
-        TupleList.getInstance().addGoto(falseLabel);
     }
 
     private Operand translateConstExp(Node node) {

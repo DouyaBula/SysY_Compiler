@@ -83,7 +83,7 @@ public class SymbolTable {
         sb.append("SymbolTable ").append(id).append(" size ").append(size).append(":\n");
         for (String key : content.keySet()) {
             sb.append(content.get(key)).append(" offset ")
-                    .append(content.get(key).getOffset()+4).append("\n");
+                    .append(content.get(key).getOffset()).append("\n");
         }
         return sb.toString();
     }

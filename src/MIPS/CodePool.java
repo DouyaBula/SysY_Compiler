@@ -3,8 +3,21 @@ package MIPS;
 import java.util.ArrayList;
 
 public class CodePool {
+    private final int frameCnt;
+    private static final ArrayList<String> savedRegs =
+            new ArrayList<String>() {{
+                add("$t1");
+                add("$t2");
+                add("$t3");
+                add("$t4");
+                add("$ra");
+                add("$s5");
+                add("$s6");
+                add("$v0");
+            }};
 
     private CodePool() {
+        frameCnt = savedRegs.size();
     }
 
     private static CodePool instance;
@@ -28,46 +41,32 @@ public class CodePool {
         return sb.toString();
     }
 
-    public ArrayList<String> syscall(int id){
+    public ArrayList<String> syscall(int id) {
         ArrayList<String> codes = new ArrayList<>();
         codes.add(code("li", "$v0", "" + id));
         codes.add(code("syscall"));
         return codes;
     }
 
-    public ArrayList<String> saveRegs(int stackSize) {
+    public int getFrameCnt() {
+        return frameCnt;
+    }
+
+    public ArrayList<String> saveRegs(String stackSizeReg) {
         ArrayList<String> codes = new ArrayList<>();
-        // save $t1 - $t4
-        codes.add(code("sw", "$t1", 4 - stackSize + "($sp)"));
-        codes.add(code("sw", "$t2", 8 - stackSize + "($sp)"));
-        codes.add(code("sw", "$t3", 12 - stackSize + "($sp)"));
-        codes.add(code("sw", "$t4", 16 - stackSize + "($sp)"));
-        // save $ra
-        codes.add(code("sw", "$ra", 20 - stackSize + "($sp)"));
-        // save $fp
-        codes.add(code("sw", "$fp", 24 - stackSize + "($sp)"));
-        // save $sp
-        codes.add(code("sw", "$sp", 28 - stackSize + "($sp)"));
-        // save $v0
-        codes.add(code("sw", "$v0", 32 - stackSize + "($sp)"));
+        codes.add(code("subu", stackSizeReg, "$sp", stackSizeReg));
+        for (int i = 0; i < savedRegs.size(); i++) {
+            codes.add(code("sw", savedRegs.get(i), (i + 1) * 4 + "(" + stackSizeReg + ")"));
+        }
         return codes;
     }
 
-    public ArrayList<String> restoreRegs(int stackSize) {
+    public ArrayList<String> restoreRegs(String stackSizeReg) {
         ArrayList<String> codes = new ArrayList<>();
-        // save $t1 - $t4
-        codes.add(code("lw", "$t1", -4 - stackSize + "($sp)"));
-        codes.add(code("lw", "$t2", -8 - stackSize + "($sp)"));
-        codes.add(code("lw", "$t3", -12 - stackSize + "($sp)"));
-        codes.add(code("lw", "$t4", -16 - stackSize + "($sp)"));
-        // save $ra
-        codes.add(code("lw", "$ra", -20 - stackSize + "($sp)"));
-        // save $fp
-        codes.add(code("lw", "$fp", -24 - stackSize + "($sp)"));
-        // save $sp
-        codes.add(code("lw", "$sp", -28 - stackSize + "($sp)"));
-        // save $v0
-        codes.add(code("lw", "$v0", -32 - stackSize + "($sp)"));
+        codes.add(code("subu", stackSizeReg, "$sp", stackSizeReg));
+        for (int i = 0; i < savedRegs.size(); i++) {
+            codes.add(code("lw", savedRegs.get(i), (i + 1) * 4 + "(" + stackSizeReg + ")"));
+        }
         return codes;
     }
 

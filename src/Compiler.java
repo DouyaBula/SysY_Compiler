@@ -38,11 +38,15 @@ public class Compiler {
             Reporter reporter = new Reporter(error);
             Lexer lexer = new Lexer(input, reporter);
             ArrayList<Token> tokens = lexer.analyze();
+            input.close();
+            inputFile.close();
 
             // 语法分析
             Parser parser = new Parser(tokens, reporter);
             Node root = parser.parseCompUnit();
             reporter.write();
+            error.close();
+            errorFile.close();
 
             // 语义分析与中间代码生成
             if (!reporter.hasError()) {
@@ -51,6 +55,10 @@ public class Compiler {
                 TableTree.getInstance().printTableTree(table);
                 translator.write();
             }
+            table.close();
+            tableFile.close();
+            ir.close();
+            irFile.close();
 
             // MIPS目标代码生成
             if (!reporter.hasError()) {
@@ -59,19 +67,9 @@ public class Compiler {
                 generator.generate();
                 generator.write();
             }
-
-
-            // 关闭文件
-            input.close();
-            inputFile.close();
-            error.close();
-            errorFile.close();
-            table.close();
-            tableFile.close();
-            ir.close();
-            irFile.close();
             mips.close();
             mipsFile.close();
+
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }

@@ -12,12 +12,15 @@ import IR.TupleList;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Stack;
 
 public class RobustGenerator {
     private final ArrayList<String> mipsCode;
     private final CodePool codePool;
     private final BufferedWriter output;
     private int regLoop;
+    private SymbolTable currentTable;
+    private final Stack<ActivationRecord> arStack;
     private ActivationRecord currentAR;
 
     public RobustGenerator(BufferedWriter output) {
@@ -25,6 +28,8 @@ public class RobustGenerator {
         codePool = CodePool.getInstance();
         this.output = output;
         regLoop = 1;
+        currentTable = null;
+        arStack = new Stack<>();
         currentAR = null;
     }
 
@@ -33,13 +38,16 @@ public class RobustGenerator {
         generateTextPart();
     }
 
+    // 将整个函数的符号表都存入AR后, 不会再出现非全局def不在当前AR的情况
+
+    /*
     // 回溯AR，找到变量的定义位置.
     // 返回回溯的层数，-1表示未定义
     private int getDefLevel(String name) {
         int back = 0;
         ActivationRecord ar = currentAR;
         while (ar != null) {
-            if (ar.getDef(name) != null) {
+            if (ar.getDef(name, currentTable.getId()) != null) {
                 return back;
             }
             back++;
@@ -62,7 +70,7 @@ public class RobustGenerator {
                 "" + defAR.getOffset(name)));
         return defAddrReg;
     }
-
+    */
     private String allocateReg() {
         String reg = "$t" + regLoop;
         regLoop = regLoop + 1 > 4 ? 1 : regLoop + 1;
@@ -78,25 +86,21 @@ public class RobustGenerator {
             case TEMP:
                 currentAR.addTemp(name);
                 if (loadVal) {
-                    mipsCode.add(codePool.code("lw", reg, -currentAR.getOffset(name) + "($sp)"));
+                    mipsCode.add(codePool.code("lw", reg,
+                            -currentAR.getOffset(name, currentTable.getId()) + "($sp)"));
                 }
                 break;
             case DEF:
-                Template def = currentAR.getDefRecursively(name);
+                Template def = currentAR.getDefGlobally(name, currentTable.getId());
                 if (def.isGlobal()) {
                     if (loadVal) {
                         mipsCode.add(codePool.code("lw", reg, name));
                     }
                 } else {
                     if (loadVal) {
-                        int defLevel = getDefLevel(name);
-                        if (defLevel == 0) {
-                            mipsCode.add(codePool.code(
-                                    "lw", reg, -currentAR.getOffset(name) + "($fp)"));
-                        } else if (defLevel > 0) {
-                            String defAddrReg = getDefAddrReg(defLevel, name);
-                            mipsCode.add(codePool.code("lw", reg, "(" + defAddrReg + ")"));
-                        }
+                        mipsCode.add(codePool.code(
+                                "lw", reg,
+                                -currentAR.getOffset(name, currentTable.getId()) + "($fp)"));
                     }
                 }
                 break;
@@ -124,21 +128,16 @@ public class RobustGenerator {
         String name = target.getName();
         switch (type) {
             case TEMP:
-                mipsCode.add(codePool.code("sw", source, -currentAR.getOffset(name) + "($sp)"));
+                mipsCode.add(codePool.code("sw", source,
+                        -currentAR.getOffset(name, currentTable.getId()) + "($sp)"));
                 break;
             case DEF:
-                Template def = currentAR.getDefRecursively(name);
+                Template def = currentAR.getDefGlobally(name, currentTable.getId());
                 if (def.isGlobal()) {
                     mipsCode.add(codePool.code("sw", source, name));
                 } else {
-                    int defLevel = getDefLevel(name);
-                    if (defLevel == 0) {
-                        mipsCode.add(codePool.code("sw", source, -currentAR.getOffset(name) +
-                                "($fp)"));
-                    } else if (defLevel > 0) {
-                        String defAddrReg = getDefAddrReg(defLevel, name);
-                        mipsCode.add(codePool.code("sw", source, "(" + defAddrReg + ")"));
-                    }
+                    mipsCode.add(codePool.code("sw", source,
+                            -currentAR.getOffset(name, currentTable.getId()) + "($fp)"));
                 }
                 break;
             default:
@@ -149,7 +148,7 @@ public class RobustGenerator {
 
     private void convertDEF(Tuple tuple) {
         Operand varOP = tuple.getOperand1();
-        Template var = currentAR.getDef(varOP.getName());
+        Template var = currentAR.getDef(varOP.getName(), currentTable.getId());
         if (var == null) {
             System.out.println(">> ERROR: impossible def");
         }
@@ -257,30 +256,30 @@ public class RobustGenerator {
         String resultReg = null;
         if (tuple.getResult() != null) {
             // 为返回值分配空间
-            mipsCode.add("# allocate space for return value");
+            mipsCode.add("# >> allocate space for return value");
             resultReg = allocateReg(tuple.getResult(), false);
         }
         // 保存现场
         mipsCode.add("# save regs");
-        currentAR.pushSth(32);
-        mipsCode.addAll(codePool.saveRegs(currentAR.getStackSize()));
+        int frameCnt = codePool.getFrameCnt();
+        currentAR.pushSth(frameCnt);
+        mipsCode.add(codePool.code("lw", "$s1", -4 + "($fp)"));
+        mipsCode.addAll(codePool.saveRegs("$s1"));
         // 将栈中参数复制到新的AR中
         mipsCode.add("# copy params");
         String funcName = tuple.getOperand1().getName();
         Template func = TableTree.getInstance().getTable(0).getContent().get(funcName);
         ArrayList<Operand> paramList = func.getParamList();
         for (int i = 0; i < paramList.size(); i++) {
-            int oldOffset = currentAR.getStackSize() - 32 - 4 * (paramList.size() - i);
-            int newOffset = currentAR.getStackSize() + 4 * i;
-            mipsCode.add(codePool.code("lw", "$s0", -oldOffset + "($sp)"));
-            mipsCode.add(codePool.code("sw", "$s0", -newOffset + "($sp)"));
+            int oldOffset = 4 * frameCnt + (resultReg == null ? 0 : 4)
+                    + 4 * (paramList.size() - i);
+            int newOffset = currentAR.getReserveSize() + 4 * i;
+            mipsCode.add(codePool.code("lw", "$s0", oldOffset + "($s1)"));
+            mipsCode.add(codePool.code("sw", "$s0", -newOffset + "($s1)"));
         }
         // 调用函数
         mipsCode.add("# call function");
         mipsCode.add(codePool.code("jal", funcName + "_BEGIN"));
-        // 弹出AR
-        mipsCode.add("# pop AR");
-        convertPopAR(null);
         // 函数返回值
         if (tuple.getResult() != null) {
             mipsCode.add("# get return value");
@@ -289,7 +288,9 @@ public class RobustGenerator {
         }
         // 恢复现场
         mipsCode.add("# restore regs");
-        mipsCode.addAll(codePool.restoreRegs(currentAR.getStackSize()));
+        mipsCode.add(codePool.code("lw", "$s1", -4 + "($fp)"));
+        mipsCode.addAll(codePool.restoreRegs("$s1"));
+        currentAR.popSth(frameCnt);
     }
 
     private void convertRETURN(Tuple tuple) {
@@ -297,6 +298,8 @@ public class RobustGenerator {
         if (returnVal != null) {
             mipsCode.add(codePool.code("move", "$v0", allocateReg(returnVal, true)));
         }
+        mipsCode.add(codePool.code("# pop AR"));
+        convertPopAR(tuple);
         mipsCode.add(codePool.code("jr", "$ra"));
     }
 
@@ -324,12 +327,14 @@ public class RobustGenerator {
     private void convertPUSH(Tuple tuple) {
         Operand paramOp = tuple.getOperand1();
         String param = allocateReg(paramOp, true);
-        mipsCode.add(codePool.code("sw", param, -currentAR.getStackSize() + "($sp)"));
+        mipsCode.add(codePool.code("lw", "$s1", -4 + "($fp)"));
+        mipsCode.add(codePool.code("subu", "$s1", "$sp", "$s1"));
+        mipsCode.add(codePool.code("sw", param, "($s1)"));
         currentAR.pushSth();
     }
 
     private String calculateAddrReg(Operand base, Operand offset, boolean isLoadAddr) {
-        Template def = currentAR.getDefRecursively(base.getName());
+        Template def = currentAR.getDefGlobally(base.getName(), currentTable.getId());
         String addrReg;
         if (offset == null) {   // isLoadAddr always true
             addrReg = allocateReg();
@@ -338,14 +343,9 @@ public class RobustGenerator {
             } else if (def.is(SymbolType.PARAM)) {
                 mipsCode.add(codePool.code("move", addrReg, allocateReg(base, true)));
             } else {
-                int defLevel = getDefLevel(base.getName());
-                if (defLevel == 0) {
-                    mipsCode.add(codePool.code(
-                            "subu", addrReg, "$sp", "" + currentAR.getOffset(base.getName())));
-                } else {
-                    mipsCode.add(codePool.code(
-                            "move", addrReg, getDefAddrReg(defLevel, base.getName())));
-                }
+                mipsCode.add(codePool.code(
+                        "subu", addrReg, "$fp",
+                        "" + currentAR.getOffset(base.getName(), currentTable.getId())));
             }
         } else {
             addrReg = allocateReg(offset, true);
@@ -359,15 +359,9 @@ public class RobustGenerator {
             } else if (def.is(SymbolType.PARAM)) {
                 mipsCode.add(codePool.code("subu", addrReg, addrReg, allocateReg(base, true)));
             } else {
-                int defLevel = getDefLevel(base.getName());
-                if (defLevel == 0) {
-                    mipsCode.add(codePool.code("subu", addrReg, "$sp", addrReg));
-                    mipsCode.add(codePool.code("subu", addrReg, addrReg,
-                            "" + currentAR.getOffset(base.getName())));
-                } else {
-                    String defAddrReg = getDefAddrReg(defLevel, base.getName());
-                    mipsCode.add(codePool.code("subu", addrReg, addrReg, defAddrReg));
-                }
+                mipsCode.add(codePool.code("subu", addrReg, "$fp", addrReg));
+                mipsCode.add(codePool.code("subu", addrReg, addrReg,
+                        "" + currentAR.getOffset(base.getName(), currentTable.getId())));
             }
         }
         return addrReg;
@@ -433,12 +427,13 @@ public class RobustGenerator {
         allocateAR(table);
     }
 
+    // TODO: 未修改currentAR
     private void convertPopAR(Tuple tuple) {
+        arStack.pop();
+        currentAR = arStack.peek();
         mipsCode.add(codePool.code("lw", "$fp", "0($fp)"));
-        if (tuple != null) {
-            currentAR = currentAR.getLastAR();
-        }
-        mipsCode.add(codePool.code("subi", "$sp", "$fp", "" + currentAR.getDefSize()));
+        mipsCode.add(codePool.code("lw", "$s1", -8 + "($fp)")); // get defSize
+        mipsCode.add(codePool.code("subu", "$sp", "$fp", "$s1"));   // set sp
     }
 
     // 生成全局数据段
@@ -480,7 +475,7 @@ public class RobustGenerator {
         // 跳转到main函数
         mipsCode.add(codePool.code("j", "main_BEGIN"));
         for (Tuple tuple : TupleList.getInstance().getTuples()) {
-            TableTree.getInstance().setCurrentTable(tuple.getBelongTable());
+            currentTable = tuple.getBelongTable();
             mipsCode.add("# " + tuple);
             convert(tuple);
             mipsCode.add("");
@@ -489,12 +484,20 @@ public class RobustGenerator {
 
     // 分配AR
     private void allocateAR(SymbolTable table) {
-        ActivationRecord newAR = new ActivationRecord(table, currentAR);
+        ActivationRecord newAR = new ActivationRecord(table, currentAR, mipsCode);
+        arStack.push(newAR);
         if (currentAR != null) {
-            mipsCode.add(codePool.code("subi", "$sp", "$fp", "" + currentAR.getSize()));
+            // 将sp下移当前AR大小
+            mipsCode.add(codePool.code("lw", "$s1", -4 + "($fp)")); // get stackSize
+            mipsCode.add(codePool.code("lw", "$s0", -8 + "($fp)")); // get defSize
+            mipsCode.add(codePool.code("addu", "$s1", "$s1", "$s0"));
+            mipsCode.add(codePool.code("subu", "$sp", "$fp", "$s1"));
         }
         mipsCode.add(codePool.code("sw", "$fp", "0($sp)")); // save last AR addr
         mipsCode.add(codePool.code("move", "$fp", "$sp"));  // set fp
+        mipsCode.add(codePool.code("sw", "$zero", -4 + "($fp)")); // set stackSize
+        mipsCode.add(codePool.code("li", "$s1", "" + newAR.getDefSize()));
+        mipsCode.add(codePool.code("sw", "$s1", -8 + "($fp)")); // set defSize
         mipsCode.add(codePool.code("subi", "$sp", "$fp", "" + newAR.getDefSize())); // set sp
         currentAR = newAR;
     }
