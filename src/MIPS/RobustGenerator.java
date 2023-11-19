@@ -23,7 +23,11 @@ public class RobustGenerator {
     private final HashMap<SymbolTable, ActivationRecord> arMap;
     private ActivationRecord currentAR;
     private int labelCnt;
+    private final String STACKBOTTOM = "0x7fffeffc";
     private final String STACKLIMIT = "0x10040000";
+    // 指定一个缓冲区专门用来传递函数参数
+    private final String BUFFER = String.valueOf(
+            0x7fffeffc - 4 * 8192);
 
     public RobustGenerator(BufferedWriter output) {
         mipsCode = new ArrayList<>();
@@ -245,18 +249,18 @@ public class RobustGenerator {
         currentAR.pushSth(frameCnt);
         mipsCode.add(codePool.code("lw", "$s1", -4 + "($fp)"));
         mipsCode.addAll(codePool.saveRegs("$s1"));
-        // 将栈中参数复制到新的AR中
+        // 将BUFFER中参数复制到新的AR中
         mipsCode.add("# copy params");
         String funcName = tuple.getOperand1().getName();
         Template func = TableTree.getInstance().getTable(0).getContent().get(funcName);
         ArrayList<Operand> paramList = func.getParamList();
         for (int i = 0; i < paramList.size(); i++) {
-            int oldOffset = 4 * frameCnt + (resultReg == null ? 0 : 4)
-                    + 4 * (paramList.size() - i);
+            int oldOffset = 4 * i;
             int newOffset = currentAR.getReserveSize() + 4 * i;
-            mipsCode.add(codePool.code("lw", "$s0", oldOffset + "($s1)"));
+            mipsCode.add(codePool.code("lw", "$s0", -oldOffset + "($k0)"));
             mipsCode.add(codePool.code("sw", "$s0", -newOffset + "($s1)"));
         }
+        mipsCode.add(codePool.code("move", "$k1", "$k0"));
         // 调用函数
         mipsCode.add("# call function");
         mipsCode.add(codePool.code("jal", funcName + "_BEGIN"));
@@ -307,10 +311,8 @@ public class RobustGenerator {
     private void convertPUSH(Tuple tuple) {
         Operand paramOp = tuple.getOperand1();
         String param = allocateReg(paramOp, true);
-        mipsCode.add(codePool.code("lw", "$s1", -4 + "($fp)"));
-        mipsCode.add(codePool.code("subu", "$s1", "$sp", "$s1"));
-        mipsCode.add(codePool.code("sw", param, "($s1)"));
-        currentAR.pushSth();
+        mipsCode.add(codePool.code("sw", param, "($k1)"));
+        mipsCode.add(codePool.code("subu", "$k1", "$k1", "4"));
     }
 
     private String calculateAddrReg(Operand base, Operand offset, boolean isLoadAddr) {
@@ -463,6 +465,8 @@ public class RobustGenerator {
     // 生成代码段
     private void generateTextPart() {
         mipsCode.add(".text");
+        mipsCode.add(codePool.code("li", "$k0", BUFFER)); // $k0 保存BUFFER基地址
+        mipsCode.add(codePool.code("li", "$k1", BUFFER)); // $k1 指向BUFFER栈顶
         allocateAR(TableTree.getInstance().getTable(0));    // allocate global AR
         // 跳转到main函数
         mipsCode.add(codePool.code("j", "main_BEGIN"));
