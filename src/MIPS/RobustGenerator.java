@@ -12,7 +12,7 @@ import IR.TupleList;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Stack;
+import java.util.HashMap;
 
 public class RobustGenerator {
     private final ArrayList<String> mipsCode;
@@ -20,8 +20,10 @@ public class RobustGenerator {
     private final BufferedWriter output;
     private int regLoop;
     private SymbolTable currentTable;
-    private final Stack<ActivationRecord> arStack;
+    private final HashMap<SymbolTable, ActivationRecord> arMap;
     private ActivationRecord currentAR;
+    private int labelCnt;
+    private final String STACKLIMIT = "0x10040000";
 
     public RobustGenerator(BufferedWriter output) {
         mipsCode = new ArrayList<>();
@@ -29,8 +31,9 @@ public class RobustGenerator {
         this.output = output;
         regLoop = 1;
         currentTable = null;
-        arStack = new Stack<>();
+        arMap = new HashMap<>();
         currentAR = null;
+        labelCnt = 0;
     }
 
     public void generate() {
@@ -165,12 +168,14 @@ public class RobustGenerator {
     private void convertASSIGN(Tuple tuple) {
         Operand target = tuple.getResult();
         Operand source = tuple.getOperand1();
+        allocateReg(target, false);
         saveReg(target, allocateReg(source, true));
     }
 
     private void convertNOT(Tuple tuple) {
         Operand target = tuple.getResult();
         Operand source = tuple.getOperand1();
+        allocateReg(target, false);
         String temp = allocateReg(source, true);
         mipsCode.add(codePool.code("seq", temp, "$zero", temp));
         saveReg(target, temp);
@@ -179,6 +184,7 @@ public class RobustGenerator {
     private void convertNEG(Tuple tuple) {
         Operand target = tuple.getResult();
         Operand source = tuple.getOperand1();
+        allocateReg(target, false);
         String temp = allocateReg(source, true);
         mipsCode.add(codePool.code("negu", temp, temp));
         saveReg(target, temp);
@@ -280,6 +286,8 @@ public class RobustGenerator {
         // 调用函数
         mipsCode.add("# call function");
         mipsCode.add(codePool.code("jal", funcName + "_BEGIN"));
+        // 弹出AR
+        convertPopAR(tuple);
         // 函数返回值
         if (tuple.getResult() != null) {
             mipsCode.add("# get return value");
@@ -298,8 +306,6 @@ public class RobustGenerator {
         if (returnVal != null) {
             mipsCode.add(codePool.code("move", "$v0", allocateReg(returnVal, true)));
         }
-        mipsCode.add(codePool.code("# pop AR"));
-        convertPopAR(tuple);
         mipsCode.add(codePool.code("jr", "$ra"));
     }
 
@@ -357,7 +363,18 @@ public class RobustGenerator {
             if (def.isGlobal()) {
                 mipsCode.add(codePool.code("la", addrReg, base.getName() + "(" + addrReg + ")"));
             } else if (def.is(SymbolType.PARAM)) {
-                mipsCode.add(codePool.code("subu", addrReg, addrReg, allocateReg(base, true)));
+                // 检查param的地址(baseReg)在栈段还是数据段, 两者的增长方向相反
+                mipsCode.add("\t# check param addr");
+                String baseReg = allocateReg(base, true);
+                mipsCode.add(codePool.code("bgt", baseReg, STACKLIMIT, "_stack_" + labelCnt));
+                mipsCode.add("_data_" + labelCnt + ": ");
+                mipsCode.add(codePool.code("addu", addrReg, baseReg, addrReg));
+                mipsCode.add(codePool.code("j", "_end_" + labelCnt));
+                mipsCode.add("_stack_" + labelCnt + ": ");
+                mipsCode.add(codePool.code("subu", addrReg, baseReg, addrReg));
+                mipsCode.add("_end_" + labelCnt + ": ");
+                labelCnt++;
+                mipsCode.add("\t# check param addr finished");
             } else {
                 mipsCode.add(codePool.code("subu", addrReg, "$fp", addrReg));
                 mipsCode.add(codePool.code("subu", addrReg, addrReg,
@@ -371,6 +388,7 @@ public class RobustGenerator {
         Operand base = tuple.getOperand1();
         Operand offset = tuple.getOperand2();
         Operand target = tuple.getResult();
+        allocateReg(target, false);
         String offsetReg = calculateAddrReg(base, offset, false);
         String targetReg = allocateReg(target, false);
         mipsCode.add(codePool.code("lw", targetReg, "(" + offsetReg + ")"));
@@ -381,6 +399,7 @@ public class RobustGenerator {
         Operand base = tuple.getOperand1();
         Operand offset = tuple.getOperand2();
         Operand target = tuple.getResult();
+        allocateReg(target, false);
         String addrReg = calculateAddrReg(base, offset, true);
         String targetReg = allocateReg(target, false);
         mipsCode.add(codePool.code("move", targetReg, addrReg));
@@ -397,7 +416,7 @@ public class RobustGenerator {
 
     private void convertREAD(Tuple tuple) {
         mipsCode.addAll(codePool.syscall(5));
-        String targetReg = allocateReg(tuple.getOperand1(), false);
+        allocateReg(tuple.getOperand1(), false);
         saveReg(tuple.getOperand1(), "$v0");
     }
 
@@ -427,10 +446,9 @@ public class RobustGenerator {
         allocateAR(table);
     }
 
-    // TODO: 未修改currentAR
     private void convertPopAR(Tuple tuple) {
-        arStack.pop();
-        currentAR = arStack.peek();
+        mipsCode.add("# pop AR");
+        currentAR = arMap.get(tuple.getBelongTable());
         mipsCode.add(codePool.code("lw", "$fp", "0($fp)"));
         mipsCode.add(codePool.code("lw", "$s1", -8 + "($fp)")); // get defSize
         mipsCode.add(codePool.code("subu", "$sp", "$fp", "$s1"));   // set sp
@@ -484,8 +502,7 @@ public class RobustGenerator {
 
     // 分配AR
     private void allocateAR(SymbolTable table) {
-        ActivationRecord newAR = new ActivationRecord(table, currentAR, mipsCode);
-        arStack.push(newAR);
+        ActivationRecord newAR = new ActivationRecord(table, mipsCode, arMap);
         if (currentAR != null) {
             // 将sp下移当前AR大小
             mipsCode.add(codePool.code("lw", "$s1", -4 + "($fp)")); // get stackSize

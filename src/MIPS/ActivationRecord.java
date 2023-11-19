@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class ActivationRecord {
-    private final ActivationRecord lastAR;
     private final SymbolTable baseTable;
     private final ArrayList<Integer> tableIdList;    // 用于记录当前AR中所有的符号表
     private final HashMap<String, Integer> def;
@@ -18,28 +17,30 @@ public class ActivationRecord {
     private final CodePool codePool = CodePool.getInstance();
     private int defSize;
     private final int reserveSize = 12;    // 4 for last AR addr, 4 for stackSize, 4 for defSize
+    private final HashMap<SymbolTable, ActivationRecord> arMap;
 
-    public ActivationRecord(SymbolTable baseTable, ActivationRecord lastAR,
-                            ArrayList<String> mipsCode) {
-        this.lastAR = lastAR;
+    public ActivationRecord(SymbolTable baseTable, ArrayList<String> mipsCode
+            , HashMap<SymbolTable, ActivationRecord> arMap) {
         this.baseTable = baseTable;
         this.tableIdList = new ArrayList<>();
         def = new HashMap<>();
         defSize = reserveSize;
         stack = new HashMap<>();
         this.mipsCode = mipsCode;
-        initializeDef();
+        this.arMap = arMap;
+        initialize();
     }
 
     private void addStackSize(int delta) {
         // $s1 用来暂存AR大小
-        mipsCode.add("# update stack size");
+        mipsCode.add("\t# update stack size");
         mipsCode.add(codePool.code("lw", "$s1", -4 + "($fp)"));
         mipsCode.add(codePool.code("addi", "$s1", "$s1", delta + ""));
         mipsCode.add(codePool.code("sw", "$s1", -4 + "($fp)"));
+        mipsCode.add("\t# update stack size finished");
     }
 
-    private void initializeDef() {
+    private void initialize() {
         if (baseTable.getParent() != null) {  // not root
             // 把符号表和子符号表中的def递归加入到当前AR的def中
             // 考虑到子符号表的def可能会覆盖父符号表的def，所以用id+name作为key
@@ -57,9 +58,11 @@ public class ActivationRecord {
                 }
                 defSize += symbolTable.getSize();
                 symbolTables.addAll(symbolTable.getChildren());
+                arMap.put(symbolTable, this);
             }
         } else {
             tableIdList.add(baseTable.getId());
+            arMap.put(baseTable, this);
         }
     }
 
