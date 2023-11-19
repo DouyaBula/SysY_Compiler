@@ -41,39 +41,6 @@ public class RobustGenerator {
         generateTextPart();
     }
 
-    // 将整个函数的符号表都存入AR后, 不会再出现非全局def不在当前AR的情况
-
-    /*
-    // 回溯AR，找到变量的定义位置.
-    // 返回回溯的层数，-1表示未定义
-    private int getDefLevel(String name) {
-        int back = 0;
-        ActivationRecord ar = currentAR;
-        while (ar != null) {
-            if (ar.getDef(name, currentTable.getId()) != null) {
-                return back;
-            }
-            back++;
-            ar = ar.getLastAR();
-        }
-        return -1;
-    }
-
-    // 回溯层数大于0时，返回变量的地址寄存器
-    private String getDefAddrReg(int defLevel, String name) {
-        ActivationRecord defAR = currentAR;
-        String defAddrReg = allocateReg();
-        mipsCode.add(codePool.code("move", defAddrReg, "$fp"));
-        while (defLevel > 0) {
-            defAR = defAR.getLastAR();
-            mipsCode.add(codePool.code("lw", defAddrReg, "0(" + defAddrReg + ")"));
-            defLevel--;
-        }
-        mipsCode.add(codePool.code("subiu", defAddrReg, defAddrReg,
-                "" + defAR.getOffset(name)));
-        return defAddrReg;
-    }
-    */
     private String allocateReg() {
         String reg = "$t" + regLoop;
         regLoop = regLoop + 1 > 4 ? 1 : regLoop + 1;
@@ -127,6 +94,11 @@ public class RobustGenerator {
     }
 
     private void saveReg(Operand target, String source) {
+        saveReg(target, source, 0);
+    }
+
+    // offset only used for local def
+    private void saveReg(Operand target, String source, int offset) {
         OperandType type = target.getType();
         String name = target.getName();
         switch (type) {
@@ -140,7 +112,8 @@ public class RobustGenerator {
                     mipsCode.add(codePool.code("sw", source, name));
                 } else {
                     mipsCode.add(codePool.code("sw", source,
-                            -currentAR.getOffset(name, currentTable.getId()) + "($fp)"));
+                            -offset * 4 - currentAR.getOffset(name, currentTable.getId()) +
+                                    "($fp)"));
                 }
                 break;
             default:
@@ -158,9 +131,10 @@ public class RobustGenerator {
         if ((var.is(SymbolType.VAR) || var.is(SymbolType.CONST))
                 && !var.isGlobal()) {
             ArrayList<Operand> initVal = var.getInitVal();
-            for (Operand initOp : initVal) {
-                mipsCode.add(codePool.code("move", "$s0", allocateReg(initOp, true)));
-                saveReg(varOP, "$s0");
+            for (int i = 0; i < initVal.size(); i++) {
+                Operand init = initVal.get(i);
+                mipsCode.add(codePool.code("move", "$s0", allocateReg(init, true)));
+                saveReg(varOP, "$s0", i);
             }
         }
     }

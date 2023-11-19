@@ -155,11 +155,9 @@ public class Translator {
             } else if (child.is(Term.Block)) {
                 TableTree.getInstance().addFuncDefToParent(name, hasRet, paramList);
                 translateBlock(child);
-                if (!generatedReturn) {
-                    TupleList.getInstance().addReturn(null);
-                }
-                generatedReturn = false;
                 TupleList.getInstance().addLabel(name + "_END");
+                // 防止函数末尾没有return语句
+                TupleList.getInstance().addReturn(null);
                 TableTree.getInstance().exitBlock();
             }
         }
@@ -254,7 +252,6 @@ public class Translator {
             } else {
                 Operand ret = node.getChild(1).is(Term.Exp) ? translateExp(node.getChild(1)) : null;
                 TupleList.getInstance().addReturn(ret);
-                generatedReturn = true;
             }
         } else if (node.contains(Term.LVal, Symbol.ASSIGN, Symbol.GETINTTK)) {
             String name = node.getChild(0).getChild(0).getToken().getRaw();
