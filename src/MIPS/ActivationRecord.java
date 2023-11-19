@@ -1,9 +1,13 @@
 package MIPS;
 
+import IR.OperandType;
+import IR.Operator;
 import IR.SymbolTable;
 import IR.SymbolType;
 import IR.TableTree;
 import IR.Template;
+import IR.Tuple;
+import IR.TupleList;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,35 +16,25 @@ public class ActivationRecord {
     private final SymbolTable baseTable;
     private final ArrayList<Integer> tableIdList;    // 用于记录当前AR中所有的符号表
     private final HashMap<String, Integer> def;
-    private final HashMap<String, Integer> stack;
-    private final ArrayList<String> mipsCode;
-    private final CodePool codePool = CodePool.getInstance();
+    private final HashMap<String, Integer> temp;
     private int defSize;
-    private final int reserveSize = 12;    // 4 for last AR addr, 4 for stackSize, 4 for defSize
+    private int tempSize;
+    private int saveSize = CodePool.getInstance().getFrameCnt() * 4;
+    private final int reserveSize = 4;    // 4 for last AR addr
     private final HashMap<SymbolTable, ActivationRecord> arMap;
 
-    public ActivationRecord(SymbolTable baseTable, ArrayList<String> mipsCode
-            , HashMap<SymbolTable, ActivationRecord> arMap) {
+    public ActivationRecord(SymbolTable baseTable,
+                            HashMap<SymbolTable, ActivationRecord> arMap, int tupleId) {
         this.baseTable = baseTable;
         this.tableIdList = new ArrayList<>();
         def = new HashMap<>();
+        temp = new HashMap<>();
         defSize = reserveSize;
-        stack = new HashMap<>();
-        this.mipsCode = mipsCode;
         this.arMap = arMap;
-        initialize();
+        initialize(tupleId);
     }
 
-    private void addStackSize(int delta) {
-        // $s1 用来暂存AR大小
-        mipsCode.add("\t# update stack size");
-        mipsCode.add(codePool.code("lw", "$s1", -4 + "($fp)"));
-        mipsCode.add(codePool.code("addi", "$s1", "$s1", delta + ""));
-        mipsCode.add(codePool.code("sw", "$s1", -4 + "($fp)"));
-        mipsCode.add("\t# update stack size finished");
-    }
-
-    private void initialize() {
+    private void initialize(int tupleId) {
         if (baseTable.getParent() != null) {  // not root
             // 把符号表和子符号表中的def递归加入到当前AR的def中
             // 考虑到子符号表的def可能会覆盖父符号表的def，所以用id+name作为key
@@ -60,22 +54,50 @@ public class ActivationRecord {
                 symbolTables.addAll(symbolTable.getChildren());
                 arMap.put(symbolTable, this);
             }
+
+            // 接下来处理temp
+            Tuple tuple = TupleList.getInstance().getTuple(tupleId - 1);
+            String funcName = tuple.getOperand1().getName();    // 得到函数名
+            funcName = funcName.substring(0, funcName.length() - 6); // 去掉funcName的"_BEGIN"后缀
+            // 遍历tuple直到遇见函数结尾
+            int i = tupleId;
+            while (i < TupleList.getInstance().getTuples().size()) {
+                tuple = TupleList.getInstance().getTuple(i);
+                if (tuple.getOperator() == Operator.LABEL) {
+                    if (tuple.getOperand1().getName().equals(funcName + "_END")) {
+                        break;
+                    }
+                }
+                // 找到tuple中的temp Operand
+                if (tuple.getOperand1() != null &&
+                        tuple.getOperand1().getType() == OperandType.TEMP &&
+                        !temp.containsKey(tuple.getOperand1().getName())) {
+                    temp.put(tuple.getOperand1().getName(), tempSize);
+                    tempSize += 4;
+                }
+                if (tuple.getOperand2() != null &&
+                        tuple.getOperand2().getType() == OperandType.TEMP &&
+                        !temp.containsKey(tuple.getOperand2().getName())) {
+                    temp.put(tuple.getOperand2().getName(), tempSize);
+                    tempSize += 4;
+                }
+                if (tuple.getResult() != null &&
+                        tuple.getResult().getType() == OperandType.TEMP &&
+                        !temp.containsKey(tuple.getResult().getName())) {
+                    temp.put(tuple.getResult().getName(), tempSize);
+                    tempSize += 4;
+                }
+                i++;
+            }
         } else {
             tableIdList.add(baseTable.getId());
             arMap.put(baseTable, this);
         }
     }
 
-    public void addTemp(String name) {
-        if (!stack.containsKey(name)) {
-            stack.put(name, stack.size() * 4);
-            addStackSize(4);
-        }
-    }
-
     public int getOffset(String name, int tableId) {
-        if (stack.containsKey(name)) {
-            return stack.get(name);
+        if (temp.containsKey(name)) {
+            return defSize + temp.get(name);
         } else {
             // 递归查找def
             SymbolTable table = TableTree.getInstance().getTable(tableId);
@@ -98,28 +120,16 @@ public class ActivationRecord {
         return defSize;
     }
 
-    public void pushSth() {
-        stack.put("sthAt" + stack.size(), stack.size() * 4);
-        addStackSize(4);
+    public int getTempSize() {
+        return tempSize;
     }
 
-    public void pushSth(int cnt) {
-        for (int i = 0; i < cnt; i++) {
-            stack.put("sthAt" + stack.size(), stack.size() * 4);
-        }
-        addStackSize(cnt * 4);
+    public int getSaveSize() {
+        return saveSize;
     }
 
-    public void popSth() {
-        stack.remove("sthAt" + (stack.size() - 1));
-        addStackSize(-4);
-    }
-
-    public void popSth(int cnt) {
-        for (int i = 0; i < cnt; i++) {
-            stack.remove("sthAt" + (stack.size() - 1));
-        }
-        addStackSize(-cnt * 4);
+    public int getSize() {
+        return defSize + tempSize + saveSize;
     }
 
     // 返回当前AR中的def

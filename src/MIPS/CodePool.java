@@ -52,20 +52,18 @@ public class CodePool {
         return frameCnt;
     }
 
-    public ArrayList<String> saveRegs(String stackSizeReg) {
+    public ArrayList<String> saveRegs(int tempSize) {
         ArrayList<String> codes = new ArrayList<>();
-        codes.add(code("subu", stackSizeReg, "$sp", stackSizeReg));
         for (int i = 0; i < savedRegs.size(); i++) {
-            codes.add(code("sw", savedRegs.get(i), (i + 1) * 4 + "(" + stackSizeReg + ")"));
+            codes.add(code("sw", savedRegs.get(i), -4 * i - tempSize + "($sp)"));
         }
         return codes;
     }
 
-    public ArrayList<String> restoreRegs(String stackSizeReg) {
+    public ArrayList<String> restoreRegs(int tempSize) {
         ArrayList<String> codes = new ArrayList<>();
-        codes.add(code("subu", stackSizeReg, "$sp", stackSizeReg));
         for (int i = 0; i < savedRegs.size(); i++) {
-            codes.add(code("lw", savedRegs.get(i), (i + 1) * 4 + "(" + stackSizeReg + ")"));
+            codes.add(code("lw", savedRegs.get(i), -4 * i - tempSize + "($sp)"));
         }
         return codes;
     }

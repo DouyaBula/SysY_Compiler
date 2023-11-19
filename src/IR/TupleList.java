@@ -16,6 +16,10 @@ public class TupleList {
         return tupleList;
     }
 
+    public Tuple getTuple(int index) {
+        return tuples.get(index);
+    }
+
     public ArrayList<Tuple> getTuples() {
         return tuples;
     }
