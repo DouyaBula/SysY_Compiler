@@ -24,7 +24,8 @@ public class RobustGenerator {
     private ActivationRecord currentAR;
     private int labelCnt;
     private final String STACKBOTTOM = "0x7fffeffc";
-    private final String STACKLIMIT = "0x10040000";
+    //    private final String STACKLIMIT = "0x10040000";
+    private final String STACKLIMIT = "0x20040000"; // bigger .data segment
     // 指定一个缓冲区专门用来传递函数参数
     private final String BUFFER = String.valueOf(
             0x7fffeffc - 4 * 8192);
@@ -39,6 +40,10 @@ public class RobustGenerator {
         arMap = new HashMap<>();
         currentAR = null;
         labelCnt = 0;
+    }
+
+    private int getCurrentLine() {
+        return TupleList.getInstance().getTuple(currentTuple).getLine();
     }
 
     public void generate() {
@@ -61,11 +66,13 @@ public class RobustGenerator {
             case TEMP:
                 if (loadVal) {
                     mipsCode.add(codePool.code("lw", reg,
-                            -currentAR.getOffset(name, currentTable.getId()) + "($sp)"));
+                            -currentAR.getOffset(name, currentTable.getId(), getCurrentLine())
+                                    + "($sp)"));
                 }
                 break;
             case DEF:
-                Template def = currentAR.getDefGlobally(name, currentTable.getId());
+                Template def = currentAR.getDefGlobally(name, currentTable.getId(),
+                        getCurrentLine());
                 if (def.isGlobal()) {
                     if (loadVal) {
                         mipsCode.add(codePool.code("lw", reg, name));
@@ -74,7 +81,8 @@ public class RobustGenerator {
                     if (loadVal) {
                         mipsCode.add(codePool.code(
                                 "lw", reg,
-                                -currentAR.getOffset(name, currentTable.getId()) + "($fp)"));
+                                -currentAR.getOffset(name, currentTable.getId(),
+                                        getCurrentLine()) + "($fp)"));
                     }
                 }
                 break;
@@ -108,15 +116,18 @@ public class RobustGenerator {
         switch (type) {
             case TEMP:
                 mipsCode.add(codePool.code("sw", source,
-                        -currentAR.getOffset(name, currentTable.getId()) + "($sp)"));
+                        -currentAR.getOffset(name, currentTable.getId(), getCurrentLine()) +
+                                "($sp)"));
                 break;
             case DEF:
-                Template def = currentAR.getDefGlobally(name, currentTable.getId());
+                Template def = currentAR.getDefGlobally(name, currentTable.getId(),
+                        getCurrentLine());
                 if (def.isGlobal()) {
                     mipsCode.add(codePool.code("sw", source, name));
                 } else {
                     mipsCode.add(codePool.code("sw", source,
-                            -offset * 4 - currentAR.getOffset(name, currentTable.getId()) +
+                            -offset * 4 - currentAR.getOffset(name, currentTable.getId(),
+                                    getCurrentLine()) +
                                     "($fp)"));
                 }
                 break;
@@ -128,7 +139,7 @@ public class RobustGenerator {
 
     private void convertDEF(Tuple tuple) {
         Operand varOP = tuple.getOperand1();
-        Template var = currentAR.getDef(varOP.getName(), currentTable.getId());
+        Template var = currentAR.getDef(varOP.getName(), currentTable.getId(), getCurrentLine());
         if (var == null) {
             System.out.println(">> ERROR: impossible def");
         }
@@ -242,13 +253,13 @@ public class RobustGenerator {
         Template func = TableTree.getInstance().getTable(0).getContent().get(funcName);
         ArrayList<Operand> paramList = func.getParamList();
         for (int i = 0; i < paramList.size(); i++) {
-            int oldOffset = 4 * i;
+            int oldOffset = 4 * (paramList.size() - i);
             int newOffset = currentAR.getTempSize() + currentAR.getSaveSize()
                     + currentAR.getReserveSize() + 4 * i;
-            mipsCode.add(codePool.code("lw", "$s0", -oldOffset + "($k0)"));
+            mipsCode.add(codePool.code("lw", "$s0", oldOffset + "($k1)"));
             mipsCode.add(codePool.code("sw", "$s0", -newOffset + "($sp)"));
         }
-        mipsCode.add(codePool.code("move", "$k1", "$k0"));
+        mipsCode.add(codePool.code("addu", "$k1", "$k1", "" + 4 * paramList.size()));
         // 使用$s2传递当前AR的大小
         mipsCode.add("# transfer AR size");
         mipsCode.add(codePool.code("li", "$s2", "" + currentAR.getSize()));
@@ -306,7 +317,8 @@ public class RobustGenerator {
     }
 
     private String calculateAddrReg(Operand base, Operand offset, boolean isLoadAddr) {
-        Template def = currentAR.getDefGlobally(base.getName(), currentTable.getId());
+        Template def = currentAR.getDefGlobally(base.getName(), currentTable.getId(),
+                getCurrentLine());
         String addrReg;
         if (offset == null) {   // isLoadAddr always true
             addrReg = allocateReg();
@@ -317,7 +329,8 @@ public class RobustGenerator {
             } else {
                 mipsCode.add(codePool.code(
                         "subu", addrReg, "$fp",
-                        "" + currentAR.getOffset(base.getName(), currentTable.getId())));
+                        "" + currentAR.getOffset(base.getName(), currentTable.getId(),
+                                getCurrentLine())));
             }
         } else {
             addrReg = allocateReg(offset, true);
@@ -344,7 +357,8 @@ public class RobustGenerator {
             } else {
                 mipsCode.add(codePool.code("subu", addrReg, "$fp", addrReg));
                 mipsCode.add(codePool.code("subu", addrReg, addrReg,
-                        "" + currentAR.getOffset(base.getName(), currentTable.getId())));
+                        "" + currentAR.getOffset(base.getName(), currentTable.getId(),
+                                getCurrentLine())));
             }
         }
         return addrReg;

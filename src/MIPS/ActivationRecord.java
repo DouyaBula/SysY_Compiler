@@ -95,15 +95,16 @@ public class ActivationRecord {
         }
     }
 
-    public int getOffset(String name, int tableId) {
+    public int getOffset(String name, int tableId, int line) {
         if (temp.containsKey(name)) {
-            return defSize + temp.get(name);
+            return temp.get(name);
         } else {
             // 递归查找def
             SymbolTable table = TableTree.getInstance().getTable(tableId);
             while (table != null && tableIdList.contains(table.getId())) {
                 Template template = table.getContent().get(name);
-                if (template != null) {
+                // 还要通过检查行数确定是否已经定义
+                if (template != null && template.getLine() <= line) {
                     return def.get(table.getId() + name);
                 }
                 table = table.getParent();
@@ -133,11 +134,12 @@ public class ActivationRecord {
     }
 
     // 返回当前AR中的def
-    public Template getDef(String name, int tableId) {
+    public Template getDef(String name, int tableId, int line) {
         SymbolTable table = TableTree.getInstance().getTable(tableId);
         while (table != null && tableIdList.contains(table.getId())) {
             Template template = table.getContent().get(name);
-            if (template != null) {
+            // 还要通过检查行数确定是否已经定义
+            if (template != null && template.getLine() <= line) {
                 return template;
             }
             table = table.getParent();
@@ -146,8 +148,8 @@ public class ActivationRecord {
     }
 
     // 全局查找Def
-    public Template getDefGlobally(String name, int tableId) {
-        Template def = getDef(name, tableId);
+    public Template getDefGlobally(String name, int tableId, int line) {
+        Template def = getDef(name, tableId, line);
         if (def != null) {
             return def;
         } else {

@@ -15,32 +15,40 @@ public class Template {
     // offset should only be used for var and param
     private int offset; // 相对于符号表基址的偏移量
     private int bodyId; // 函数体所在符号表的id
+    private int line;   // 变量定义的行号
 
     public Template(String name, Operand dim1, Operand dim2, boolean isConst,
-                    ArrayList<Operand> initVal) {
+                    ArrayList<Operand> initVal, int line) {
         this.type = isConst ? SymbolType.CONST : SymbolType.VAR;
         this.name = name;
         this.dim1 = dim1;
         this.dim2 = dim2;
         this.initVal = initVal;
         this.paramList = new ArrayList<>();
+        this.line = line;
     }
 
-    public Template(String name, boolean hasRet, ArrayList<Operand> paramList) {
+    public Template(String name, boolean hasRet, ArrayList<Operand> paramList, int line) {
         this.type = SymbolType.FUNC;
         this.name = name;
         this.hasRet = hasRet;
         this.initVal = new ArrayList<>();
         this.paramList = paramList;
+        this.line = line;
     }
 
-    public Template(String name, Operand dim1, Operand dim2) {
+    public Template(String name, Operand dim1, Operand dim2, int line) {
         this.type = SymbolType.PARAM;
         this.name = name;
         this.dim1 = dim1;
         this.dim2 = dim2;
         this.initVal = new ArrayList<>();
         this.paramList = new ArrayList<>();
+        this.line = line;
+    }
+
+    public int getLine() {
+        return line;
     }
 
     public boolean isGlobal() {

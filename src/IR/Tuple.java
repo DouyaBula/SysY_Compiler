@@ -7,13 +7,20 @@ public class Tuple {
     private Operand operand2;
     private Operand result;
     private SymbolTable belongTable;
+    private int line;
 
-    public Tuple(Operator operator, Operand operand1, Operand operand2, Operand result) {
+    public Tuple(Operator operator, Operand operand1, Operand operand2,
+                 Operand result, int line) {
         this.operator = operator;
         this.operand1 = operand1;
         this.operand2 = operand2;
         this.result = result;
         this.belongTable = TableTree.getInstance().getCurrentTable();
+        this.line = line;
+    }
+
+    public int getLine() {
+        return line;
     }
 
     public Operator getOperator() {
@@ -93,6 +100,6 @@ public class Tuple {
             default:
                 break;
         }
-        return str;
+        return line + ": " + str;
     }
 }

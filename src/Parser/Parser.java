@@ -25,7 +25,7 @@ public class Parser {
     private int loopCnt;
 
     public Parser(ArrayList<Token> tokens, Reporter reporter) {
-        this.stepper = new Stepper(tokens);
+        this.stepper = Stepper.getInstance(tokens);
         this.reporter = reporter;
         this.tables = new HashSet<>();
         curTable = new Table(null);

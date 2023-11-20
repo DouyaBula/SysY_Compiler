@@ -11,6 +11,7 @@ public class Node {
     private final ArrayList<Node> children;
     private final Token token;
     private final boolean isLeaf;
+    private final int line;
 
     public Node(Token token) {
         this.type = null;
@@ -18,6 +19,7 @@ public class Node {
         this.isLeaf = true;
         this.token = token;
         this.parent = null;
+        this.line = token.getLine().intValue();
     }
 
     public Node(Term term) {
@@ -25,6 +27,12 @@ public class Node {
         this.children = new ArrayList<>();
         this.isLeaf = false;
         this.token = null;
+        this.parent = null;
+        this.line = Stepper.getInstance(null).getLine();
+    }
+
+    public int getLine() {
+        return line;
     }
 
     public boolean isLeaf() {

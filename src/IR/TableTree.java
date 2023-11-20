@@ -82,8 +82,9 @@ public class TableTree {
         currentTable.addSymbol(name, template);
     }
 
-    public void addConstDef(String name, Operand dim1, Operand dim2, ArrayList<Operand> initVal) {
-        Template template = new Template(name, dim1, dim2, true, initVal);
+    public void addConstDef(String name, Operand dim1, Operand dim2,
+                            ArrayList<Operand> initVal, int line) {
+        Template template = new Template(name, dim1, dim2, true, initVal, line);
         template.setOffset(currentTable.getSize());
         int delta = dim1.getConstVal() == 0 ? 4 :
                 (dim2.getConstVal() == 0 ? 4 * dim1.getConstVal() :
@@ -95,8 +96,9 @@ public class TableTree {
         addSymbol(name, template);
     }
 
-    public void addVarDef(String name, Operand dim1, Operand dim2, ArrayList<Operand> initVal) {
-        Template template = new Template(name, dim1, dim2, false, initVal);
+    public void addVarDef(String name, Operand dim1, Operand dim2,
+                          ArrayList<Operand> initVal, int line) {
+        Template template = new Template(name, dim1, dim2, false, initVal, line);
         template.setOffset(currentTable.getSize());
         int delta = dim1.getConstVal() == 0 ? 4 :
                 (dim2.getConstVal() == 0 ? 4 * dim1.getConstVal() :
@@ -108,19 +110,19 @@ public class TableTree {
         addSymbol(name, template);
     }
 
-    public void addFuncDef(String name, boolean hasRet, ArrayList<Operand> params) {
-        Template template = new Template(name, hasRet, params);
+    public void addFuncDef(String name, boolean hasRet, ArrayList<Operand> params, int line) {
+        Template template = new Template(name, hasRet, params, line);
         addSymbol(name, template);
     }
 
-    public void addFuncDefToParent(String name, boolean hasRet, ArrayList<Operand> params) {
-        Template template = new Template(name, hasRet, params);
+    public void addFuncDefToParent(String name, boolean hasRet, ArrayList<Operand> params, int line) {
+        Template template = new Template(name, hasRet, params, line);
         template.setBodyId(currentTable.getId());
         currentTable.getParent().addSymbol(name, template);
     }
 
-    public void addFuncParam(String name, Operand dim1, Operand dim2) {
-        Template template = new Template(name, dim1, dim2);
+    public void addFuncParam(String name, Operand dim1, Operand dim2, int line) {
+        Template template = new Template(name, dim1, dim2, line);
         template.setOffset(currentTable.getSize());
         if (currentTable.getParent() != null) {
             // 参数一定占 4 字节

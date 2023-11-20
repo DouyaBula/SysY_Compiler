@@ -82,8 +82,8 @@ public class Translator {
                 initVal = translateConstInitVal(child);
             }
         }
-        TableTree.getInstance().addConstDef(name, dims[0], dims[1], initVal);
-        TupleList.getInstance().addDef(name);
+        TableTree.getInstance().addConstDef(name, dims[0], dims[1], initVal, node.getLine());
+        TupleList.getInstance().addDef(name, node.getLine());
     }
 
     private ArrayList<Operand> translateConstInitVal(Node node) {
@@ -122,8 +122,8 @@ public class Translator {
                 initVal = translateInitVal(child);
             }
         }
-        TableTree.getInstance().addVarDef(name, dims[0], dims[1], initVal);
-        TupleList.getInstance().addDef(name);
+        TableTree.getInstance().addVarDef(name, dims[0], dims[1], initVal, node.getLine());
+        TupleList.getInstance().addDef(name, node.getLine());
     }
 
     private ArrayList<Operand> translateInitVal(Node node) {
@@ -148,16 +148,16 @@ public class Translator {
             } else if (child.is(Symbol.IDENFR)) {
                 name = child.getToken().getRaw();
                 TableTree.getInstance().enterBlock();
-                TupleList.getInstance().addLabel(name + "_BEGIN");
-                TupleList.getInstance().addPushAR();
+                TupleList.getInstance().addLabel(name + "_BEGIN", node.getLine());
+                TupleList.getInstance().addPushAR(node.getLine());
             } else if (child.is(Term.FuncFParams)) {
                 paramList = translateFuncFParams(child);
             } else if (child.is(Term.Block)) {
-                TableTree.getInstance().addFuncDefToParent(name, hasRet, paramList);
+                TableTree.getInstance().addFuncDefToParent(name, hasRet, paramList, node.getLine());
                 translateBlock(child);
-                TupleList.getInstance().addLabel(name + "_END");
+                TupleList.getInstance().addLabel(name + "_END", node.getLine());
                 // 防止函数末尾没有return语句
-                TupleList.getInstance().addReturn(null);
+                TupleList.getInstance().addReturn(null, node.getLine());
                 TableTree.getInstance().exitBlock();
             }
         }
@@ -167,13 +167,13 @@ public class Translator {
         String name = "main";
         for (Node child : node.getChildren()) {
             if (child.is(Term.Block)) {
-                TableTree.getInstance().addFuncDef(name, false, new ArrayList<>());
+                TableTree.getInstance().addFuncDef(name, false, new ArrayList<>(), node.getLine());
                 TableTree.getInstance().enterBlock();
-                TupleList.getInstance().addLabel(name + "_BEGIN");
-                TupleList.getInstance().addPushAR();
+                TupleList.getInstance().addLabel(name + "_BEGIN", node.getLine());
+                TupleList.getInstance().addPushAR(node.getLine());
                 inMain = true;
                 translateBlock(child);
-                TupleList.getInstance().addLabel(name + "_END");
+                TupleList.getInstance().addLabel(name + "_END", node.getLine());
                 inMain = false;
                 TableTree.getInstance().exitBlock();
             }
@@ -207,7 +207,7 @@ public class Translator {
         if (dimCnt > 0) {
             dims[0] = Operand.getConstOperand(114514);
         }
-        TableTree.getInstance().addFuncParam(name, dims[0], dims[1]);
+        TableTree.getInstance().addFuncParam(name, dims[0], dims[1], node.getLine());
         return Operand.getDefOperand(name);
     }
 
@@ -243,26 +243,26 @@ public class Translator {
         } else if (node.contains(Symbol.FORTK)) {
             translateStmt_For(node);
         } else if (node.contains(Symbol.BREAKTK)) {
-            TupleList.getInstance().addGoto(loopEndStack.peek());
+            TupleList.getInstance().addGoto(loopEndStack.peek(), node.getLine());
         } else if (node.contains(Symbol.CONTINUETK)) {
-            TupleList.getInstance().addGoto(loopTailStack.peek());
+            TupleList.getInstance().addGoto(loopTailStack.peek(), node.getLine());
         } else if (node.contains(Symbol.RETURNTK)) {
             if (inMain) {
-                TupleList.getInstance().addExit();
+                TupleList.getInstance().addExit(node.getLine());
             } else {
                 Operand ret = node.getChild(1).is(Term.Exp) ? translateExp(node.getChild(1)) : null;
-                TupleList.getInstance().addReturn(ret);
+                TupleList.getInstance().addReturn(ret, node.getLine());
             }
         } else if (node.contains(Term.LVal, Symbol.ASSIGN, Symbol.GETINTTK)) {
             String name = node.getChild(0).getChild(0).getToken().getRaw();
             Operand lval = Operand.getDefOperand(name);
             Operand offset = translateLVal(node.getChild(0), true);
             if (!offset.isOffset()) {
-                TupleList.getInstance().addRead(lval);
+                TupleList.getInstance().addRead(lval, node.getLine());
             } else {
                 Operand temp = Operand.getTempOperand();
-                TupleList.getInstance().addRead(temp);
-                TupleList.getInstance().addStore(lval, offset, temp);
+                TupleList.getInstance().addRead(temp, node.getLine());
+                TupleList.getInstance().addStore(lval, offset, temp, node.getLine());
             }
         } else if (node.contains(Symbol.PRINTFTK)) {
             translateStmt_Print(node);
@@ -284,9 +284,9 @@ public class Translator {
             }
         }
         if (!offset.isOffset()) {
-            TupleList.getInstance().addAssign(lVal, exp);
+            TupleList.getInstance().addAssign(lVal, exp, node.getLine());
         } else {
-            TupleList.getInstance().addStore(lVal, offset, exp);
+            TupleList.getInstance().addStore(lVal, offset, exp, node.getLine());
         }
     }
 
@@ -305,15 +305,15 @@ public class Translator {
             if (child.is(Term.Cond)) {
                 translateCond(child, bodyLabel, hasElse ? elseLabel : endLabel);
             } else if (child.is(Symbol.RPARENT)) {
-                TupleList.getInstance().addLabel(bodyLabel);
+                TupleList.getInstance().addLabel(bodyLabel, node.getLine());
             } else if (child.is(Symbol.ELSETK)) {
-                TupleList.getInstance().addGoto(endLabel);
-                TupleList.getInstance().addLabel(elseLabel);
+                TupleList.getInstance().addGoto(endLabel, node.getLine());
+                TupleList.getInstance().addLabel(elseLabel, node.getLine());
             } else if (child.is(Term.Stmt)) {
                 translateStmt(child);
             }
         }
-        TupleList.getInstance().addLabel(endLabel);
+        TupleList.getInstance().addLabel(endLabel, node.getLine());
     }
 
     private void translateStmt_For(Node node) {
@@ -333,7 +333,7 @@ public class Translator {
                 break;
             }
         }
-        TupleList.getInstance().addLabel(beginLabel);
+        TupleList.getInstance().addLabel(beginLabel, node.getLine());
         for (; i < node.getChildren().size(); i++) {
             if (node.getChild(i).is(Term.Cond)) {
                 translateCond(node.getChild(i), bodyLabel, endLabel);
@@ -344,20 +344,20 @@ public class Translator {
             }
         }
         int j = i;
-        TupleList.getInstance().addLabel(bodyLabel);
+        TupleList.getInstance().addLabel(bodyLabel, node.getLine());
         for (; i < node.getChildren().size(); i++) {
             if (node.getChild(i).is(Term.Stmt)) {
                 translateStmt(node.getChild(i));
             }
         }
-        TupleList.getInstance().addLabel(tailLabel);
+        TupleList.getInstance().addLabel(tailLabel, node.getLine());
         for (; j < node.getChildren().size(); j++) {
             if (node.getChild(j).is(Term.ForStmt)) {
                 translateForStmt(node.getChild(j));
             }
         }
-        TupleList.getInstance().addGoto(beginLabel);
-        TupleList.getInstance().addLabel(endLabel);
+        TupleList.getInstance().addGoto(beginLabel, node.getLine());
+        TupleList.getInstance().addLabel(endLabel, node.getLine());
         loopTailStack.pop();
         loopEndStack.pop();
     }
@@ -382,10 +382,10 @@ public class Translator {
         for (; i < splitStr.length; i++) {
             if (!splitStr[i].isEmpty()) {
                 int strId = TableTree.getInstance().addString(splitStr[i]);
-                TupleList.getInstance().addPrint("#str" + strId);
+                TupleList.getInstance().addPrint("#str" + strId, node.getLine());
             }
             if (j < expList.size()) {
-                TupleList.getInstance().addPrint(expList.get(j++));
+                TupleList.getInstance().addPrint(expList.get(j++), node.getLine());
             }
         }
     }
@@ -403,12 +403,13 @@ public class Translator {
     private void translateCond(Node node, Operand trueLabel, Operand falseLabel) {
         Node lOrExp = node.getChild(0);
         translateLOrExp(lOrExp, trueLabel, falseLabel);
-        TupleList.getInstance().addGoto(falseLabel);
+        TupleList.getInstance().addGoto(falseLabel, node.getLine());
     }
 
     private Operand translateLVal(Node node, boolean isLeft) {
         Operand result = null;
         String name = null;
+        Template template = null;
         int realDimCnt = 0;
         int dimCnt = 0;
         Operand[] dims = {Operand.getConstOperand(0), Operand.getConstOperand(0)};
@@ -417,10 +418,8 @@ public class Translator {
                 dims[dimCnt++] = translateExp(child);
             } else if (child.is(Symbol.IDENFR)) {
                 name = child.getToken().getRaw();
-                Template template = TableTree.getInstance().getTemplate(name);
-                if (template != null) {
-                    realDimCnt = template.getDimCnt();
-                }
+                template = TableTree.getInstance().getTemplate(name);
+                realDimCnt = template.getDimCnt();
             }
         }
         // 标记返回的operand是否作为offset使用
@@ -429,39 +428,58 @@ public class Translator {
             // 检测是否与数组维数相同
             if (dimCnt == realDimCnt) {
                 // 加载值
-                result = Operand.getDefOperand(name);
+                if (template.is(SymbolType.CONST)) {
+                    result = template.getInitVal(0);
+                } else {
+                    result = Operand.getDefOperand(name);
+                }
             } else {
                 // 加载地址
                 result = Operand.getTempOperand();
-                TupleList.getInstance().addLoadAddr(Operand.getDefOperand(name), null, result);
+                TupleList.getInstance().addLoadAddr(
+                        Operand.getDefOperand(name), null, result, node.getLine());
             }
         } else if (dimCnt == 1) {
-            result = Operand.getTempOperand();
-            Operand def = Operand.getDefOperand(name);
             if (!isLeft) {
                 // 检测是否与数组维数相同
                 if (dimCnt == realDimCnt) {
                     // 加载值
-                    TupleList.getInstance().addLoad(def, dims[0], result);
+                    if (template.is(SymbolType.CONST) && dims[0].isConst()) {
+                        result = template.getInitVal(dims[0].getConstVal());
+                    } else {
+                        result = Operand.getTempOperand();
+                        Operand def = Operand.getDefOperand(name);
+                        TupleList.getInstance().addLoad(def, dims[0], result, node.getLine());
+                    }
                 } else {
                     // 加载地址
-                    TupleList.getInstance().addLoadAddr(def, dims[0], result);
+                    result = Operand.getTempOperand();
+                    Operand def = Operand.getDefOperand(name);
+                    TupleList.getInstance().addLoadAddr(def, dims[0], result, node.getLine());
                 }
             } else {
                 dims[0].setOffset(true);
                 return dims[0];
             }
         } else if (dimCnt == 2) {
-            result = Operand.getTempOperand();
-            Operand def = Operand.getDefOperand(name);
-            Operand offset = Operand.getTempOperand();
-            Operand dimSize =
-                    TableTree.getInstance().getTemplate(name).getDim2();
-            TupleList.getInstance().addMul(dims[0], dimSize, offset);
-            TupleList.getInstance().addAdd(offset, dims[1], offset);
+            Operand dimSize = TableTree.getInstance().getTemplate(name).getDim2();
             if (!isLeft) {
-                TupleList.getInstance().addLoad(def, offset, result);
+                if (template.is(SymbolType.CONST)
+                        && dims[0].isConst() && dims[1].isConst()) {
+                    result = template.getInitVal(dims[0].getConstVal() * dimSize.getConstVal()
+                            + dims[1].getConstVal());
+                } else {
+                    result = Operand.getTempOperand();
+                    Operand def = Operand.getDefOperand(name);
+                    Operand offset = Operand.getTempOperand();
+                    TupleList.getInstance().addMul(dims[0], dimSize, offset, node.getLine());
+                    TupleList.getInstance().addAdd(offset, dims[1], offset, node.getLine());
+                    TupleList.getInstance().addLoad(def, offset, result, node.getLine());
+                }
             } else {
+                Operand offset = Operand.getTempOperand();
+                TupleList.getInstance().addMul(dims[0], dimSize, offset, node.getLine());
+                TupleList.getInstance().addAdd(offset, dims[1], offset, node.getLine());
                 offset.setOffset(true);
                 return offset;
             }
@@ -504,9 +522,9 @@ public class Translator {
             }
             Operand def = Operand.getDefOperand(name);
             if (hasRet) {
-                TupleList.getInstance().addCall(def, result);
+                TupleList.getInstance().addCall(def, result, node.getLine());
             } else {
-                TupleList.getInstance().addCall(def);
+                TupleList.getInstance().addCall(def, node.getLine());
             }
         } else if (node.contains(Term.UnaryOp)) {
             Node unaryOp = node.getChild(0).getChild(0);
@@ -519,12 +537,12 @@ public class Translator {
                     result = Operand.getConstOperand(-op.getConstVal());
                 } else {
                     result = Operand.getTempOperand();
-                    TupleList.getInstance().addNeg(op, result);
+                    TupleList.getInstance().addNeg(op, result, node.getLine());
                 }
             } else if (unaryOp.is(Symbol.NOT)) {
                 result = Operand.getTempOperand();
                 Operand op = translateUnaryExp(unaryExp);
-                TupleList.getInstance().addNot(op, result);
+                TupleList.getInstance().addNot(op, result, node.getLine());
             }
         }
         return result;
@@ -535,7 +553,7 @@ public class Translator {
             if (child.is(Term.Exp)) {
                 Operand param = translateExp(child);
                 TupleList.getInstance().addPush(param,
-                        Operand.getConstOperand(func.getBodyId()));
+                        Operand.getConstOperand(func.getBodyId()), node.getLine());
             }
         }
     }
@@ -551,11 +569,11 @@ public class Translator {
             if (!isConst) {
                 result = Operand.getTempOperand();
                 if (node.getChild(1).is(Symbol.MULT)) {
-                    TupleList.getInstance().addMul(op1, op2, result);
+                    TupleList.getInstance().addMul(op1, op2, result, node.getLine());
                 } else if (node.getChild(1).is(Symbol.DIV)) {
-                    TupleList.getInstance().addDiv(op1, op2, result);
+                    TupleList.getInstance().addDiv(op1, op2, result, node.getLine());
                 } else if (node.getChild(1).is(Symbol.MOD)) {
-                    TupleList.getInstance().addMod(op1, op2, result);
+                    TupleList.getInstance().addMod(op1, op2, result, node.getLine());
                 }
             } else {
                 int val1 = op1.getConstVal();
@@ -583,9 +601,9 @@ public class Translator {
             if (!isConst) {
                 result = Operand.getTempOperand();
                 if (node.getChild(1).is(Symbol.PLUS)) {
-                    TupleList.getInstance().addAdd(op1, op2, result);
+                    TupleList.getInstance().addAdd(op1, op2, result, node.getLine());
                 } else if (node.getChild(1).is(Symbol.MINU)) {
-                    TupleList.getInstance().addSub(op1, op2, result);
+                    TupleList.getInstance().addSub(op1, op2, result, node.getLine());
                 }
             } else {
                 int val1 = op1.getConstVal();
@@ -609,13 +627,13 @@ public class Translator {
             Operand op1 = translateRelExp(node.getChild(0));
             Operand op2 = translateAddExp(node.getChild(2));
             if (node.getChild(1).is(Symbol.LSS)) {
-                TupleList.getInstance().addLt(op1, op2, result);
+                TupleList.getInstance().addLt(op1, op2, result, node.getLine());
             } else if (node.getChild(1).is(Symbol.LEQ)) {
-                TupleList.getInstance().addLeq(op1, op2, result);
+                TupleList.getInstance().addLeq(op1, op2, result, node.getLine());
             } else if (node.getChild(1).is(Symbol.GRE)) {
-                TupleList.getInstance().addGt(op1, op2, result);
+                TupleList.getInstance().addGt(op1, op2, result, node.getLine());
             } else if (node.getChild(1).is(Symbol.GEQ)) {
-                TupleList.getInstance().addGeq(op1, op2, result);
+                TupleList.getInstance().addGeq(op1, op2, result, node.getLine());
             }
         }
         return result;
@@ -630,9 +648,9 @@ public class Translator {
             Operand op1 = translateEqExp(node.getChild(0));
             Operand op2 = translateRelExp(node.getChild(2));
             if (node.getChild(1).is(Symbol.EQL)) {
-                TupleList.getInstance().addEq(op1, op2, result);
+                TupleList.getInstance().addEq(op1, op2, result, node.getLine());
             } else if (node.getChild(1).is(Symbol.NEQ)) {
-                TupleList.getInstance().addNeq(op1, op2, result);
+                TupleList.getInstance().addNeq(op1, op2, result, node.getLine());
             }
         }
         return result;
@@ -642,7 +660,7 @@ public class Translator {
         for (Node child : node.getChildren()) {
             if (child.is(Term.EqExp)) {
                 Operand eqExp = translateEqExp(child);
-                TupleList.getInstance().addJumpFalse(eqExp, subFalseLabel);
+                TupleList.getInstance().addJumpFalse(eqExp, subFalseLabel, node.getLine());
             } else if (child.is(Term.LAndExp)) {
                 translateLAndExp(child, subFalseLabel);
             }
@@ -654,8 +672,8 @@ public class Translator {
             if (child.is(Term.LAndExp)) {
                 Operand subFalseLabel = Operand.getAutoLabelOperand("LAndExpEnd");
                 translateLAndExp(child, subFalseLabel);
-                TupleList.getInstance().addGoto(trueLabel);
-                TupleList.getInstance().addLabel(subFalseLabel);
+                TupleList.getInstance().addGoto(trueLabel, node.getLine());
+                TupleList.getInstance().addLabel(subFalseLabel, node.getLine());
             } else if (child.is(Term.LOrExp)) {
                 translateLOrExp(child, trueLabel, falseLabel);
             }

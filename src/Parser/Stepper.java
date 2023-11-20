@@ -9,9 +9,22 @@ public class Stepper {
     private final ArrayList<Token> tokens;
     private int index;
 
-    public Stepper(ArrayList<Token> tokens) {
+    private static Stepper stepper;
+    public static Stepper getInstance(ArrayList<Token> tokens) {
+        if (stepper == null) {
+            stepper = new Stepper(tokens);
+        }
+        return stepper;
+    }
+
+    private Stepper(ArrayList<Token> tokens) {
         this.tokens = tokens;
         this.index = 0;
+    }
+
+    public int getLine() {
+        int line = peek().getLine().intValue();
+        return line;
     }
 
     public boolean atEnd() {
